@@ -394,7 +394,7 @@
 <!-- HEADER -->
 <div class="header" id="appHeader" style="display:none">
   <div class="header-logo">Karveli <span>Stock</span></div>
-  <div class="header-user" id="headerUser" onclick="showScreen('dashboardScreen')">⬅ Menu</div>
+  <div class="header-user" id="headerUser" onclick="goBack()">⬅ Back</div>
 </div>
 
 <!-- TOAST -->
@@ -619,20 +619,54 @@ async function init() {
 // ═══════════════════════════════════════
 // NAVIGATION
 // ═══════════════════════════════════════
+let navStack = [];
+
 function showScreen(id) {
+  const current = document.querySelector('.screen.active')?.id;
+  if (current && current !== id && current !== 'loginScreen') {
+    navStack.push(current);
+  }
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   const header = document.getElementById('appHeader');
-  if (id === 'loginScreen' || id === 'setupScreen') {
+  if (id === 'loginScreen') {
     header.style.display = 'none';
+    navStack = [];
   } else {
     header.style.display = 'flex';
-    if (currentUser) {
-      document.getElementById('headerUser').textContent =
-        id === 'dashboardScreen' ? currentUser.name : '⬅ Menu';
+    const backBtn = document.getElementById('headerUser');
+    if (id === 'dashboardScreen') {
+      backBtn.textContent = currentUser?.name || 'Menu';
+      backBtn.onclick = () => {};
+      navStack = [];
+    } else {
+      backBtn.textContent = '⬅ Back';
+      backBtn.onclick = goBack;
     }
   }
   window.scrollTo(0, 0);
+}
+
+function goBack() {
+  if (navStack.length > 0) {
+    const prev = navStack.pop();
+    // Don't push to stack when going back
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(prev).classList.add('active');
+    const header = document.getElementById('appHeader');
+    header.style.display = 'flex';
+    const backBtn = document.getElementById('headerUser');
+    if (prev === 'dashboardScreen') {
+      backBtn.textContent = currentUser?.name || 'Menu';
+      backBtn.onclick = () => {};
+    } else {
+      backBtn.textContent = '⬅ Back';
+      backBtn.onclick = goBack;
+    }
+    window.scrollTo(0, 0);
+  } else {
+    showScreen('dashboardScreen');
+  }
 }
 
 function showSetup() { 
@@ -703,12 +737,10 @@ function buildDashboard() {
 
   const actions = [];
 
-  if (['supervisor','manager','dispatch'].includes(role)) {
-    actions.push({
-      icon: '📋', label: 'New Daily Entry', desc: 'Display, Bar or Gelato',
-      fn: 'openNewEntry()'
-    });
-  }
+  actions.push({
+    icon: '📋', label: 'New Daily Entry', desc: 'Display, Bar or Gelato',
+    fn: 'openNewEntry()'
+  });
 
   if (['manager','cost_control','director'].includes(role)) {
     actions.push({

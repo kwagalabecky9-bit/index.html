@@ -749,6 +749,117 @@
 </div>
 
 <!-- ═══════════════════════════════════════
+     SCREEN: STAFF MANAGEMENT
+═══════════════════════════════════════ -->
+<div class="screen" id="staffScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:4px">Staff Management</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:16px">Add, edit or deactivate staff accounts</div>
+
+  <button class="btn btn-primary" style="margin-bottom:16px" onclick="openStaffModal()">+ Add New Staff</button>
+
+  <div id="staffList"></div>
+</div>
+
+<!-- STAFF MODAL -->
+<div id="staffModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;overflow-y:auto">
+  <div style="background:white;margin:40px auto;max-width:480px;border-radius:12px;padding:24px;position:relative">
+    <div style="font-size:16px;font-weight:700;color:var(--brown);margin-bottom:16px" id="staffModalTitle">Add Staff</div>
+    <input type="hidden" id="staffModalId">
+
+    <label>Full Name</label>
+    <input type="text" id="staffModalName" placeholder="e.g. John Mukisa">
+
+    <label>Username</label>
+    <input type="text" id="staffModalUsername" placeholder="e.g. johnm" autocomplete="off">
+
+    <label>PIN (4-6 digits)</label>
+    <input type="password" id="staffModalPin" placeholder="e.g. 1234" maxlength="6">
+
+    <label>Role</label>
+    <select id="staffModalRole">
+      <option value="supervisor">Supervisor</option>
+      <option value="manager">Manager / GM</option>
+      <option value="cost_control">Cost Control</option>
+      <option value="director">Director</option>
+      <option value="dispatch">Dispatch</option>
+    </select>
+
+    <label>Branch (leave blank for all branches)</label>
+    <select id="staffModalBranch">
+      <option value="">All Branches</option>
+    </select>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+      <button class="btn btn-outline" onclick="closeStaffModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveStaff()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: ITEM MANAGEMENT
+═══════════════════════════════════════ -->
+<div class="screen" id="itemsScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:4px">Item Management</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:16px">Add, edit or deactivate items per branch</div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label>Branch</label>
+        <select id="itemMgrBranch" onchange="loadItemMgr()">
+          <option value="">Select branch...</option>
+        </select>
+      </div>
+      <div>
+        <label>Department</label>
+        <select id="itemMgrDept" onchange="loadItemMgr()">
+          <option value="">Select dept...</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-primary" style="margin-top:10px" onclick="openItemModal()">+ Add New Item</button>
+  </div>
+
+  <div id="itemMgrList"></div>
+</div>
+
+<!-- ITEM MODAL -->
+<div id="itemModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:300;overflow-y:auto">
+  <div style="background:white;margin:40px auto;max-width:480px;border-radius:12px;padding:24px">
+    <div style="font-size:16px;font-weight:700;color:var(--brown);margin-bottom:16px" id="itemModalTitle">Add Item</div>
+    <input type="hidden" id="itemModalId">
+
+    <label>Item Name</label>
+    <input type="text" id="itemModalName" placeholder="e.g. Almond Croissant 100g">
+
+    <label>Category</label>
+    <input type="text" id="itemModalCategory" placeholder="e.g. Pastries, Bread, Hot Snacks">
+
+    <label>Unit of Measure</label>
+    <select id="itemModalUom">
+      <option value="Pc">Pc (Piece)</option>
+      <option value="Slice">Slice</option>
+      <option value="g">g (Grams)</option>
+      <option value="ml">ml (Millilitres)</option>
+      <option value="kg">kg</option>
+      <option value="L">L (Litres)</option>
+    </select>
+
+    <label>Item Code (optional)</label>
+    <input type="text" id="itemModalCode" placeholder="e.g. PST001">
+
+    <label>Optimal Level (reorder point)</label>
+    <input type="number" id="itemModalOptimal" placeholder="0">
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+      <button class="btn btn-outline" onclick="closeItemModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="saveItem()">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
      SCREEN: SETUP (first time)
 ═══════════════════════════════════════ -->
 <div class="screen" id="setupScreen">
@@ -770,8 +881,14 @@
       Run this in your Supabase SQL editor, then seed the initial data below.
     </p>
     <button class="btn btn-gold" onclick="seedData()" style="margin-bottom:8px">Seed Branches, Departments & Staff</button>
-    <button class="btn btn-outline" onclick="seedDisplayItems()" style="margin-bottom:8px">Seed Munyonyo Display Items</button>
+    <button class="btn btn-outline" onclick="seedDisplayItems()" style="margin-bottom:8px">Seed All Branch Display Items</button>
     <div id="setupLog" style="font-size:12px;color:var(--text-light);margin-top:10px;line-height:1.6"></div>
+  </div>
+
+  <div class="card" style="margin-top:12px">
+    <div class="card-title">Management</div>
+    <button class="btn btn-primary" onclick="openStaffScreen()" style="margin-bottom:8px">👤 Manage Staff</button>
+    <button class="btn btn-outline" onclick="openItemsScreen()">📦 Manage Items</button>
   </div>
 </div>
 
@@ -2348,6 +2465,253 @@ function downloadPDF() {
     </body></html>
   `);
   win.document.close();
+}
+
+// ═══════════════════════════════════════
+// STAFF MANAGEMENT
+// ═══════════════════════════════════════
+async function openStaffScreen() {
+  showScreen('staffScreen');
+  await loadStaffList();
+}
+
+async function loadStaffList() {
+  const list = document.getElementById('staffList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading...</div>';
+
+  const { data, error } = await db.from('kst_staff').select('*').order('name');
+  if (error || !data) { list.innerHTML = '<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Could not load staff</div></div>'; return; }
+
+  const roleLabels = { supervisor: 'Supervisor', manager: 'Manager / GM', cost_control: 'Cost Control', director: 'Director', dispatch: 'Dispatch' };
+  const roleBadge = { supervisor: 'badge-supervisor', manager: 'badge-manager', cost_control: 'badge-cost_control', director: 'badge-director', dispatch: 'badge-dispatch' };
+
+  const card = document.createElement('div');
+  card.className = 'card';
+
+  if (!data.length) {
+    card.innerHTML = '<div class="empty-state"><div class="empty-icon">👤</div><div class="empty-text">No staff added yet</div></div>';
+  } else {
+    data.forEach(s => {
+      const branchName = branches.find(b => b.id == s.branch_id)?.name || 'All Branches';
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      row.style.cursor = 'pointer';
+      row.innerHTML = `
+        <div>
+          <div class="history-date">${s.name}</div>
+          <div class="history-meta">@${s.username} · ${branchName}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span class="badge ${roleBadge[s.role]||''}">${roleLabels[s.role]||s.role}</span>
+          <span style="font-size:18px;cursor:pointer" onclick="editStaff(${s.id})">✏️</span>
+        </div>
+      `;
+      card.appendChild(row);
+    });
+  }
+  list.innerHTML = '';
+  list.appendChild(card);
+}
+
+function openStaffModal(staff) {
+  document.getElementById('staffModalId').value = '';
+  document.getElementById('staffModalName').value = '';
+  document.getElementById('staffModalUsername').value = '';
+  document.getElementById('staffModalPin').value = '';
+  document.getElementById('staffModalRole').value = 'supervisor';
+  document.getElementById('staffModalTitle').textContent = 'Add Staff';
+
+  // Fill branch dropdown
+  const sel = document.getElementById('staffModalBranch');
+  sel.innerHTML = '<option value="">All Branches</option>';
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    sel.appendChild(opt);
+  });
+
+  if (staff) {
+    document.getElementById('staffModalId').value = staff.id;
+    document.getElementById('staffModalName').value = staff.name;
+    document.getElementById('staffModalUsername').value = staff.username;
+    document.getElementById('staffModalPin').value = staff.pin;
+    document.getElementById('staffModalRole').value = staff.role;
+    document.getElementById('staffModalBranch').value = staff.branch_id || '';
+    document.getElementById('staffModalTitle').textContent = 'Edit Staff';
+  }
+
+  document.getElementById('staffModal').style.display = 'block';
+}
+
+async function editStaff(id) {
+  const { data } = await db.from('kst_staff').select('*').eq('id', id).single();
+  if (data) openStaffModal(data);
+}
+
+function closeStaffModal() {
+  document.getElementById('staffModal').style.display = 'none';
+}
+
+async function saveStaff() {
+  const id = document.getElementById('staffModalId').value;
+  const name = document.getElementById('staffModalName').value.trim();
+  const username = document.getElementById('staffModalUsername').value.trim().toLowerCase();
+  const pin = document.getElementById('staffModalPin').value.trim();
+  const role = document.getElementById('staffModalRole').value;
+  const branchId = document.getElementById('staffModalBranch').value || null;
+
+  if (!name || !username || !pin) { showToast('Fill all required fields', 'error'); return; }
+  if (pin.length < 4) { showToast('PIN must be at least 4 digits', 'error'); return; }
+
+  const payload = { name, username, pin, role, branch_id: branchId ? parseInt(branchId) : null };
+
+  let error;
+  if (id) {
+    ({ error } = await db.from('kst_staff').update(payload).eq('id', parseInt(id)));
+  } else {
+    ({ error } = await db.from('kst_staff').insert(payload));
+  }
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(id ? 'Staff updated ✓' : 'Staff added ✓', 'success');
+  closeStaffModal();
+  await loadStaffList();
+}
+
+// ═══════════════════════════════════════
+// ITEM MANAGEMENT
+// ═══════════════════════════════════════
+async function openItemsScreen() {
+  showScreen('itemsScreen');
+
+  const bsel = document.getElementById('itemMgrBranch');
+  bsel.innerHTML = '<option value="">Select branch...</option>';
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    bsel.appendChild(opt);
+  });
+
+  const dsel = document.getElementById('itemMgrDept');
+  dsel.innerHTML = '<option value="">Select dept...</option>';
+  departments.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = d.name;
+    dsel.appendChild(opt);
+  });
+}
+
+async function loadItemMgr() {
+  const branchId = document.getElementById('itemMgrBranch').value;
+  const deptId = document.getElementById('itemMgrDept').value;
+  const list = document.getElementById('itemMgrList');
+  if (!branchId || !deptId) { list.innerHTML = ''; return; }
+
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading...</div>';
+  const { data } = await db.from('kst_items').select('*')
+    .eq('branch_id', parseInt(branchId)).eq('department_id', parseInt(deptId))
+    .order('category').order('name');
+
+  if (!data?.length) {
+    list.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><div class="empty-text">No items found</div></div>';
+    return;
+  }
+
+  const byCategory = {};
+  data.forEach(i => {
+    if (!byCategory[i.category]) byCategory[i.category] = [];
+    byCategory[i.category].push(i);
+  });
+
+  let html = '';
+  Object.entries(byCategory).forEach(([cat, items]) => {
+    html += `<div style="margin-bottom:16px">
+      <div class="category-header" style="margin:0 0 4px">${cat} (${items.length})</div>
+      <div class="card" style="padding:0">`;
+    items.forEach(i => {
+      html += `<div class="history-row" style="padding:10px 14px">
+        <div>
+          <div style="font-size:13px;font-weight:600;color:${i.active?'var(--text)':'var(--text-light)'}">${i.name} ${!i.active?'<span style="color:var(--red);font-size:10px">(inactive)</span>':''}</div>
+          <div style="font-size:11px;color:var(--text-light)">${i.uom}${i.item_code?' · '+i.item_code:''}</div>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span style="cursor:pointer;font-size:16px" onclick="editItem(${i.id})">✏️</span>
+          <span style="cursor:pointer;font-size:16px" onclick="toggleItemActive(${i.id}, ${i.active})">${i.active?'🟢':'🔴'}</span>
+        </div>
+      </div>`;
+    });
+    html += '</div></div>';
+  });
+  list.innerHTML = html;
+}
+
+function openItemModal(item) {
+  document.getElementById('itemModalId').value = '';
+  document.getElementById('itemModalName').value = '';
+  document.getElementById('itemModalCategory').value = '';
+  document.getElementById('itemModalUom').value = 'Pc';
+  document.getElementById('itemModalCode').value = '';
+  document.getElementById('itemModalOptimal').value = '';
+  document.getElementById('itemModalTitle').textContent = 'Add Item';
+
+  if (item) {
+    document.getElementById('itemModalId').value = item.id;
+    document.getElementById('itemModalName').value = item.name;
+    document.getElementById('itemModalCategory').value = item.category;
+    document.getElementById('itemModalUom').value = item.uom;
+    document.getElementById('itemModalCode').value = item.item_code || '';
+    document.getElementById('itemModalOptimal').value = item.optimal_level || '';
+    document.getElementById('itemModalTitle').textContent = 'Edit Item';
+  }
+  document.getElementById('itemModal').style.display = 'block';
+}
+
+async function editItem(id) {
+  const { data } = await db.from('kst_items').select('*').eq('id', id).single();
+  if (data) openItemModal(data);
+}
+
+function closeItemModal() {
+  document.getElementById('itemModal').style.display = 'none';
+}
+
+async function toggleItemActive(id, current) {
+  const { error } = await db.from('kst_items').update({ active: !current }).eq('id', id);
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(!current ? 'Item activated' : 'Item deactivated');
+  loadItemMgr();
+}
+
+async function saveItem() {
+  const id = document.getElementById('itemModalId').value;
+  const branchId = document.getElementById('itemMgrBranch').value;
+  const deptId = document.getElementById('itemMgrDept').value;
+  const name = document.getElementById('itemModalName').value.trim();
+  const category = document.getElementById('itemModalCategory').value.trim();
+  const uom = document.getElementById('itemModalUom').value;
+  const itemCode = document.getElementById('itemModalCode').value.trim() || null;
+  const optimal = parseFloat(document.getElementById('itemModalOptimal').value) || 0;
+
+  if (!name || !category) { showToast('Name and category required', 'error'); return; }
+  if (!id && (!branchId || !deptId)) { showToast('Select branch and department first', 'error'); return; }
+
+  const payload = { name, category, uom, item_code: itemCode, optimal_level: optimal, active: true };
+  if (!id) { payload.branch_id = parseInt(branchId); payload.department_id = parseInt(deptId); }
+
+  let error;
+  if (id) {
+    ({ error } = await db.from('kst_items').update(payload).eq('id', parseInt(id)));
+  } else {
+    ({ error } = await db.from('kst_items').insert(payload));
+  }
+
+  if (error) { showToast('Error: ' + error.message, 'error'); return; }
+  showToast(id ? 'Item updated ✓' : 'Item added ✓', 'success');
+  closeItemModal();
+  loadItemMgr();
 }
 
 // ═══════════════════════════════════════

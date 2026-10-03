@@ -878,7 +878,7 @@ async function startEntry() {
 
   // Load items for this branch + dept
   try {
-    const { data: items } = await supabase
+    const { data: items, error: itemErr } = await db
       .from('kst_items')
       .select('*')
       .eq('branch_id', branchId)
@@ -887,8 +887,16 @@ async function startEntry() {
       .order('category')
       .order('name');
 
+    if (itemErr) {
+      showToast('DB error: ' + itemErr.message, 'error');
+      return;
+    }
+
     if (!items || items.length === 0) {
-      showToast('No items found for this branch/department', 'error');
+      // Debug: check what branch_ids exist in items
+      const { data: allItems } = await db.from('kst_items').select('branch_id, department_id').limit(5);
+      const sample = allItems?.map(i => i.branch_id + '/' + i.department_id).join(', ');
+      showToast('No items. Selected: ' + branchId.toString().slice(0,6) + ' Sample in DB: ' + (sample||'empty'), 'error');
       return;
     }
 

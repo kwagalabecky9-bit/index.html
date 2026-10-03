@@ -882,6 +882,7 @@
     </p>
     <button class="btn btn-gold" onclick="seedData()" style="margin-bottom:8px">Seed Branches, Departments & Staff</button>
     <button class="btn btn-outline" onclick="seedDisplayItems()" style="margin-bottom:8px">Seed All Branch Display Items</button>
+    <button class="btn btn-outline" onclick="seedBarItems()" style="margin-bottom:8px">Seed All Branch Bar Items</button>
     <div id="setupLog" style="font-size:12px;color:var(--text-light);margin-top:10px;line-height:1.6"></div>
   </div>
 
@@ -1905,6 +1906,127 @@ function showToast(msg, type = '') {
 // ═══════════════════════════════════════
 let reconData = {};
 let reconEntries = [];
+
+async function seedBarItems() {
+  const log = document.getElementById('setupLog');
+  log.textContent = 'Seeding bar items...';
+
+  try {
+    await db.from('kst_departments').upsert([
+      { name: 'Bar', type: 'bar' }
+    ], { onConflict: 'name' });
+
+    const { data: branchData } = await db.from('branches').select('id,name');
+    const { data: deptData } = await db.from('kst_departments').select('id,name');
+    if (!branchData || !deptData) throw new Error('Could not load branches/depts');
+
+    const bar = deptData.find(d => d.name === 'Bar');
+    if (!bar) throw new Error('Bar dept not found');
+
+    const BAR_ITEMS = [
+      // Tea & Hot Beverages
+      { name: 'Tea Bags', category: 'Tea & Beverages', uom: 'Pc' },
+      { name: 'Milk (Fresh)', category: 'Tea & Beverages', uom: 'L' },
+      { name: 'Milk (Long Life)', category: 'Tea & Beverages', uom: 'L' },
+      // Beers
+      { name: 'Nile Special 500ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Club Pilsner 500ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Tusker 500ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Guinness 500ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Nile Special 330ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Club Pilsner 330ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Heineken 330ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Corona 330ml', category: 'Beers', uom: 'Pc' },
+      { name: 'Savanna Dry 330ml', category: 'Beers', uom: 'Pc' },
+      // Rums
+      { name: 'Bacardi White Rum', category: 'Spirits - Rum', uom: 'tots' },
+      { name: 'Bacardi Gold Rum', category: 'Spirits - Rum', uom: 'tots' },
+      { name: 'Captain Morgan', category: 'Spirits - Rum', uom: 'tots' },
+      { name: 'Havana Club 3yr', category: 'Spirits - Rum', uom: 'tots' },
+      // Gins
+      { name: 'Hendricks Gin', category: 'Spirits - Gin', uom: 'tots' },
+      { name: 'Tanqueray Gin', category: 'Spirits - Gin', uom: 'tots' },
+      { name: 'Gordon\'s Gin', category: 'Spirits - Gin', uom: 'tots' },
+      { name: 'Bombay Sapphire', category: 'Spirits - Gin', uom: 'tots' },
+      { name: 'Uganda Waragi', category: 'Spirits - Gin', uom: 'tots' },
+      // Vodkas
+      { name: 'Smirnoff Red', category: 'Spirits - Vodka', uom: 'tots' },
+      { name: 'Absolut Vodka', category: 'Spirits - Vodka', uom: 'tots' },
+      { name: 'Grey Goose', category: 'Spirits - Vodka', uom: 'tots' },
+      { name: 'Ciroc', category: 'Spirits - Vodka', uom: 'tots' },
+      // Whisky
+      { name: 'Johnnie Walker Red', category: 'Spirits - Whisky', uom: 'tots' },
+      { name: 'Johnnie Walker Black', category: 'Spirits - Whisky', uom: 'tots' },
+      { name: 'Jameson Irish', category: 'Spirits - Whisky', uom: 'tots' },
+      { name: 'Jack Daniels', category: 'Spirits - Whisky', uom: 'tots' },
+      { name: 'Glenfiddich 12yr', category: 'Spirits - Single Malt', uom: 'tots' },
+      { name: 'Glenlivet 12yr', category: 'Spirits - Single Malt', uom: 'tots' },
+      // Brandy & Cognac
+      { name: 'Konyagi', category: 'Spirits - Brandy', uom: 'tots' },
+      { name: 'Hennessy VS', category: 'Spirits - Cognac', uom: 'tots' },
+      { name: 'Martell VS', category: 'Spirits - Cognac', uom: 'tots' },
+      // Liqueurs
+      { name: 'Baileys Irish Cream', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Kahlua', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Amaretto', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Cointreau', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Malibu', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Aperol', category: 'Liqueurs', uom: 'tots' },
+      { name: 'Campari', category: 'Liqueurs', uom: 'tots' },
+      // Wines
+      { name: 'House Red Wine', category: 'Wine - Red', uom: 'tots' },
+      { name: 'Cabernet Sauvignon', category: 'Wine - Red', uom: 'tots' },
+      { name: 'Merlot', category: 'Wine - Red', uom: 'tots' },
+      { name: 'House White Wine', category: 'Wine - White', uom: 'tots' },
+      { name: 'Sauvignon Blanc', category: 'Wine - White', uom: 'tots' },
+      { name: 'Chardonnay', category: 'Wine - White', uom: 'tots' },
+      { name: 'Rose Wine', category: 'Wine - Rose', uom: 'tots' },
+      { name: 'Prosecco', category: 'Wine - Sparkling', uom: 'tots' },
+      { name: 'Moet & Chandon', category: 'Wine - Sparkling', uom: 'tots' },
+      // Soft Drinks
+      { name: 'Coca Cola 300ml', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Sprite 300ml', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Fanta Orange 300ml', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Tonic Water', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Ginger Ale', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Soda Water', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Minute Maid Orange', category: 'Soft Drinks', uom: 'Pc' },
+      { name: 'Minute Maid Mango', category: 'Soft Drinks', uom: 'Pc' },
+      // Water
+      { name: 'Rwenzori Still 500ml', category: 'Mineral Water', uom: 'Pc' },
+      { name: 'Rwenzori Still 1.5L', category: 'Mineral Water', uom: 'Pc' },
+      { name: 'Sparkling Water 330ml', category: 'Mineral Water', uom: 'Pc' },
+    ];
+
+    const NON_ALCOHOLIC_ONLY = ['bukoto','kiira'];
+    const NON_ALCOHOLIC_CATEGORIES = ['Tea & Beverages', 'Soft Drinks', 'Mineral Water'];
+
+    let grand = 0;
+    for (const branch of branchData) {
+      const isNonAlcoholic = NON_ALCOHOLIC_ONLY.some(n => branch.name?.toLowerCase().includes(n)) ||
+        branch.name?.toLowerCase().includes('gaba');
+      const filteredItems = isNonAlcoholic
+        ? BAR_ITEMS.filter(i => NON_ALCOHOLIC_CATEGORIES.includes(i.category))
+        : BAR_ITEMS;
+
+      // Clear old bar items
+      await db.from('kst_items').delete().eq('branch_id', branch.id).eq('department_id', bar.id);
+      const items = filteredItems.map(i => ({
+        ...i, branch_id: branch.id, department_id: bar.id, active: true
+      }));
+      const { error } = await db.from('kst_items').insert(items);
+      if (error) throw new Error(branch.name + ': ' + error.message);
+      grand += items.length;
+      log.textContent += '\n✓ ' + branch.name + (isNonAlcoholic ? ' (non-alcoholic only)' : '') + ' — ' + items.length + ' items';
+    }
+    log.textContent += '\n\n✅ Done! ' + grand + ' bar items across all branches.';
+    showToast('Bar items seeded ✓', 'success');
+  } catch(e) {
+    log.textContent += '\n\nERROR: ' + e.message;
+    showToast('Seed failed', 'error');
+  }
+}
+
 
 async function openReconScreen(date, branchId, deptId) {
   showScreen('reconScreen');

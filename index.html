@@ -857,7 +857,7 @@ function openNewEntry() {
   const branchSel = document.getElementById('entryBranch');
   branchSel.innerHTML = '<option value="">Select branch...</option>';
   const allowedBranches = currentUser.branch_id
-    ? branches.filter(b => b.id === currentUser.branch_id)
+    ? branches.filter(b => b.id === parseInt(currentUser.branch_id))
     : branches;
   allowedBranches.forEach(b => {
     const opt = document.createElement('option');
@@ -883,8 +883,8 @@ function openNewEntry() {
 
 async function startEntry() {
   const staffName = document.getElementById('entryStaffName').value.trim();
-  const branchId = document.getElementById('entryBranch').value;
-  const deptId = document.getElementById('entryDepartment').value;
+  const branchId = parseInt(document.getElementById('entryBranch').value);
+  const deptId = parseInt(document.getElementById('entryDepartment').value);
   const date = document.getElementById('entryDate').value;
 
   if (!staffName || !branchId || !deptId || !date) {

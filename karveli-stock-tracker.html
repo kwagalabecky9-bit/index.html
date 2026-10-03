@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Karveli Stock Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --brown: #2C1A0E;
+    --brown-mid: #5C3D2E;
+    --cream: #FAF6F0;
+    --gold: #C9952A;
+    --gold-light: #F0D080;
+    --red: #C0392B;
+    --green: #27AE60;
+    --orange: #E67E22;
+    --bg: #F5F0E8;
+    --card: #FFFFFF;
+    --border: #E0D5C5;
+    --text: #1A1008;
+    --text-mid: #5C3D2E;
+    --text-light: #9E8A76;
+    --radius: 10px;
+    --shadow: 0 2px 12px rgba(44,26,14,0.10);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* ── HEADER ── */
+  .header {
+    background: var(--brown);
+    color: var(--cream);
+    padding: 14px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    padding-top: calc(14px + env(safe-area-inset-top, 0px));
+  }
+  .header-logo { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-logo span { color: var(--gold); }
+  .header-user { font-size: 12px; color: var(--gold-light); cursor: pointer; }
+
+  /* ── SCREENS ── */
+  .screen { display: none; padding: 20px; max-width: 640px; margin: 0 auto; }
+  .screen.active { display: block; }
+
+  /* ── LOGIN ── */
+  .login-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px;
+    max-width: 400px;
+    margin: 0 auto;
+  }
+  .login-logo {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--brown);
+    margin-bottom: 6px;
+    letter-spacing: -0.5px;
+  }
+  .login-logo span { color: var(--gold); }
+  .login-sub { color: var(--text-light); font-size: 13px; margin-bottom: 32px; }
+  .login-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 28px 24px;
+    width: 100%;
+    box-shadow: var(--shadow);
+  }
+
+  /* ── FORM ELEMENTS ── */
+  label { display: block; font-size: 12px; font-weight: 600; color: var(--text-mid); margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.4px; }
+  input, select, textarea {
+    width: 100%;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 15px;
+    color: var(--text);
+    background: var(--cream);
+    outline: none;
+    transition: border-color 0.15s;
+    margin-bottom: 16px;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+  input[type="number"] { -moz-appearance: textfield; }
+  input[type="number"]::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  /* ── BUTTONS ── */
+  .btn {
+    display: block;
+    width: 100%;
+    padding: 13px 20px;
+    border-radius: 8px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.15s, transform 0.1s;
+  }
+  .btn:active { transform: scale(0.98); }
+  .btn-primary { background: var(--brown); color: var(--cream); }
+  .btn-primary:hover { opacity: 0.9; }
+  .btn-gold { background: var(--gold); color: white; }
+  .btn-outline { background: transparent; border: 1.5px solid var(--border); color: var(--text-mid); }
+  .btn-sm { width: auto; padding: 7px 14px; font-size: 13px; display: inline-block; }
+  .btn-danger { background: var(--red); color: white; }
+  .btn-success { background: var(--green); color: white; }
+
+  /* ── ROLE BADGES ── */
+  .badge {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .badge-supervisor { background: #EBF5FB; color: #2980B9; }
+  .badge-manager { background: #EAF7EE; color: #27AE60; }
+  .badge-cost_control { background: #FEF9E7; color: #C9952A; }
+  .badge-director { background: #FDEDEC; color: #C0392B; }
+  .badge-dispatch { background: #F4ECF7; color: #8E44AD; }
+
+  /* ── SECTION CARDS ── */
+  .card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-bottom: 12px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+  }
+  .card-title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.6px;
+    color: var(--text-light);
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* ── DASHBOARD GRID ── */
+  .dashboard-header {
+    padding: 20px 0 8px;
+  }
+  .welcome { font-size: 20px; font-weight: 700; color: var(--brown); }
+  .welcome-sub { font-size: 13px; color: var(--text-light); margin-top: 2px; }
+
+  .action-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .action-card {
+    background: var(--card);
+    border-radius: var(--radius);
+    padding: 18px 14px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.15s;
+  }
+  .action-card:hover { transform: translateY(-2px); box-shadow: 0 4px 16px rgba(44,26,14,0.14); }
+  .action-card:active { transform: scale(0.97); }
+  .action-icon { font-size: 26px; margin-bottom: 8px; }
+  .action-label { font-size: 13px; font-weight: 700; color: var(--brown); }
+  .action-desc { font-size: 11px; color: var(--text-light); margin-top: 3px; }
+  .action-card.full-width { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; padding: 14px; }
+  .action-card.full-width .action-icon { margin-bottom: 0; font-size: 22px; }
+
+  /* ── ENTRY FLOW ── */
+  .step-indicator {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+  }
+  .step-dot {
+    height: 4px;
+    flex: 1;
+    border-radius: 2px;
+    background: var(--border);
+  }
+  .step-dot.done { background: var(--gold); }
+  .step-dot.active { background: var(--brown); }
+
+  .entry-meta {
+    background: var(--brown);
+    color: var(--cream);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    margin-bottom: 16px;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .entry-meta-item { font-size: 12px; }
+  .entry-meta-item strong { display: block; font-size: 15px; color: var(--gold-light); }
+
+  /* ── ITEM ENTRY TABLE ── */
+  .category-header {
+    background: var(--brown-mid);
+    color: var(--cream);
+    padding: 8px 14px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 16px 0 8px;
+  }
+
+  .item-row {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    overflow: hidden;
+  }
+  .item-row-header {
+    padding: 10px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+  }
+  .item-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .item-uom { font-size: 11px; color: var(--text-light); }
+  .item-status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--border);
+    flex-shrink: 0;
+  }
+  .item-status-dot.has-data { background: var(--green); }
+  .item-status-dot.has-variance { background: var(--red); }
+
+  .item-fields {
+    display: none;
+    padding: 12px;
+    background: var(--cream);
+    border-top: 1px solid var(--border);
+    gap: 10px;
+  }
+  .item-fields.open { display: grid; }
+  .item-fields-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .field-group { }
+  .field-group label { margin-bottom: 3px; }
+  .field-group input, .field-group select {
+    margin-bottom: 0;
+    padding: 8px 10px;
+    font-size: 14px;
+  }
+  .field-opening {
+    background: #F0EBE3;
+    border-color: var(--brown-mid);
+    color: var(--brown-mid);
+    font-weight: 600;
+  }
+  .variance-display {
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+  }
+  .variance-ok { background: #EAF7EE; color: var(--green); }
+  .variance-bad { background: #FDEDEC; color: var(--red); }
+  .variance-pending { background: #F5F0E8; color: var(--text-light); }
+
+  .returns-row {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 8px;
+  }
+
+  /* ── PROGRESS BAR ── */
+  .progress-bar {
+    background: var(--border);
+    border-radius: 4px;
+    height: 6px;
+    margin: 8px 0 16px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    background: var(--gold);
+    border-radius: 4px;
+    transition: width 0.3s;
+  }
+
+  /* ── SUMMARY STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin: 12px 0;
+  }
+  .stat-box {
+    background: var(--card);
+    border-radius: 8px;
+    padding: 12px 10px;
+    text-align: center;
+    border: 1px solid var(--border);
+  }
+  .stat-val { font-size: 20px; font-weight: 800; color: var(--brown); }
+  .stat-label { font-size: 10px; color: var(--text-light); text-transform: uppercase; letter-spacing: 0.4px; margin-top: 2px; }
+
+  /* ── TOAST ── */
+  .toast {
+    position: fixed;
+    bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+    left: 50%;
+    transform: translateX(-50%) translateY(80px);
+    background: var(--brown);
+    color: var(--cream);
+    padding: 12px 20px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 999;
+    transition: transform 0.25s;
+    white-space: nowrap;
+    max-width: 90vw;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+  .toast.success { background: var(--green); }
+  .toast.error { background: var(--red); }
+
+  /* ── HISTORY TABLE ── */
+  .history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .history-row:last-child { border-bottom: none; }
+  .history-date { font-size: 13px; font-weight: 600; }
+  .history-meta { font-size: 11px; color: var(--text-light); }
+  .status-chip {
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-weight: 700;
+  }
+  .chip-submitted { background: #EAF7EE; color: var(--green); }
+  .chip-draft { background: #FEF9E7; color: var(--orange); }
+  .chip-reconciled { background: #EBF5FB; color: #2980B9; }
+
+  /* ── EMPTY STATE ── */
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text-light);
+  }
+  .empty-icon { font-size: 40px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* ── MOBILE ── */
+  @media (max-width: 400px) {
+    .action-grid { grid-template-columns: 1fr; }
+    .action-card.full-width { grid-column: 1; }
+    .item-fields-grid { grid-template-columns: 1fr; }
+    .returns-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header" id="appHeader" style="display:none">
+  <div class="header-logo">Karveli <span>Stock</span></div>
+  <div class="header-user" id="headerUser" onclick="showScreen('dashboardScreen')">⬅ Menu</div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: LOGIN
+═══════════════════════════════════════ -->
+<div class="screen active" id="loginScreen">
+  <div class="login-wrap">
+    <div class="login-logo">Karveli <span>Stock</span></div>
+    <div class="login-sub">Daily Stock Reconciliation System</div>
+    <div class="login-card">
+      <label>Username</label>
+      <input type="text" id="loginUsername" placeholder="Enter your username" autocomplete="off">
+      <label>PIN</label>
+      <input type="password" id="loginPin" placeholder="Enter your PIN" maxlength="6"
+        onkeydown="if(event.key==='Enter') doLogin()">
+      <button class="btn btn-primary" onclick="doLogin()">Sign In</button>
+      <p style="text-align:center;margin-top:14px;font-size:12px;color:var(--text-light)">
+        Contact your manager if you need access
+      </p>
+    </div>
+    <p style="margin-top:24px;font-size:11px;color:var(--text-light);text-align:center">
+      First time setup? <span style="color:var(--gold);cursor:pointer" onclick="showSetup()">Run setup</span>
+    </p>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: DASHBOARD
+═══════════════════════════════════════ -->
+<div class="screen" id="dashboardScreen">
+  <div class="dashboard-header">
+    <div class="welcome">Good <span id="timeGreet"></span>, <span id="welcomeName"></span></div>
+    <div class="welcome-sub" id="welcomeSub"></div>
+  </div>
+
+  <div class="stats-row" id="dashStats" style="display:none">
+    <div class="stat-box">
+      <div class="stat-val" id="statToday">0</div>
+      <div class="stat-label">Today's Entries</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="statVariance" style="color:var(--red)">0</div>
+      <div class="stat-label">Variances</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="statPending" style="color:var(--orange)">0</div>
+      <div class="stat-label">Pending Recon</div>
+    </div>
+  </div>
+
+  <div class="action-grid" id="actionGrid"></div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: START ENTRY (select branch/dept/date)
+═══════════════════════════════════════ -->
+<div class="screen" id="startEntryScreen">
+  <div style="margin-bottom:20px">
+    <div style="font-size:18px;font-weight:700;color:var(--brown)">New Daily Entry</div>
+    <div style="font-size:13px;color:var(--text-light);margin-top:3px">Display / Pastries & Bread</div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">Entry Details</div>
+
+    <label>Your Name</label>
+    <input type="text" id="entryStaffName" placeholder="Enter your name">
+
+    <label>Branch</label>
+    <select id="entryBranch">
+      <option value="">Select branch...</option>
+    </select>
+
+    <label>Department</label>
+    <select id="entryDepartment">
+      <option value="">Select department...</option>
+    </select>
+
+    <label>Date</label>
+    <input type="date" id="entryDate">
+
+    <button class="btn btn-primary" onclick="startEntry()">Start Entry →</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: ITEM ENTRY
+═══════════════════════════════════════ -->
+<div class="screen" id="itemEntryScreen">
+  <div class="entry-meta" id="entryMeta"></div>
+
+  <div class="stats-row">
+    <div class="stat-box">
+      <div class="stat-val" id="itemsTotal">0</div>
+      <div class="stat-label">Items</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="itemsFilled" style="color:var(--green)">0</div>
+      <div class="stat-label">Filled</div>
+    </div>
+    <div class="stat-box">
+      <div class="stat-val" id="itemsVariance" style="color:var(--red)">0</div>
+      <div class="stat-label">Variances</div>
+    </div>
+  </div>
+
+  <div class="progress-bar"><div class="progress-fill" id="entryProgress" style="width:0%"></div></div>
+
+  <div id="itemsList"></div>
+
+  <div style="margin-top:20px;display:grid;gap:10px">
+    <button class="btn btn-success" onclick="submitEntry()">✓ Submit Entry</button>
+    <button class="btn btn-outline" onclick="saveDraft()">Save Draft</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: HISTORY
+═══════════════════════════════════════ -->
+<div class="screen" id="historyScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:16px">Entry History</div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      <div>
+        <label>Branch</label>
+        <select id="histBranch"><option value="">All branches</option></select>
+      </div>
+      <div>
+        <label>Date</label>
+        <input type="date" id="histDate">
+      </div>
+    </div>
+    <button class="btn btn-outline" style="margin-top:4px" onclick="loadHistory()">Filter</button>
+  </div>
+
+  <div id="historyList"></div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: SETUP (first time)
+═══════════════════════════════════════ -->
+<div class="screen" id="setupScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:4px">First-Time Setup</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:20px">Configure your Supabase connection</div>
+
+  <div class="card">
+    <div class="card-title">Supabase Config</div>
+    <label>Supabase URL</label>
+    <input type="text" id="setupUrl" placeholder="https://xxxx.db.co">
+    <label>Supabase Anon Key</label>
+    <input type="text" id="setupKey" placeholder="eyJ...">
+    <button class="btn btn-primary" onclick="saveConfig()">Save & Connect</button>
+  </div>
+
+  <div class="card" id="setupActions" style="display:none">
+    <div class="card-title">Database Setup</div>
+    <p style="font-size:13px;color:var(--text-light);margin-bottom:14px">
+      Run this in your Supabase SQL editor, then seed the initial data below.
+    </p>
+    <button class="btn btn-gold" onclick="seedData()" style="margin-bottom:8px">Seed Branches, Departments & Staff</button>
+    <button class="btn btn-outline" onclick="seedDisplayItems()" style="margin-bottom:8px">Seed Munyonyo Display Items</button>
+    <div id="setupLog" style="font-size:12px;color:var(--text-light);margin-top:10px;line-height:1.6"></div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════════
+// SUPABASE INIT
+// ═══════════════════════════════════════
+const SUPABASE_URL = 'https://xlzdfueighmmipldadti.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhsemRmdWVpZ2htbWlwbGRhZHRpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQyNjYxNDQsImV4cCI6MjA4OTg0MjE0NH0.g1eMi2Ar3Rf6pWG_T4MChGMhCH0X3wfYpFMcUvi_qaE';
+
+let db;
+
+function initSupabase(url, key) {
+  try {
+    db = window.supabase.createClient(url, key);
+    return true;
+  } catch(e) {
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════
+let currentUser = null;
+let currentEntry = {
+  staffName: '',
+  branchId: null,
+  branchName: '',
+  departmentId: null,
+  departmentName: '',
+  date: '',
+  items: [], // [{item, fields}]
+  status: 'draft'
+};
+let branches = [];
+let departments = [];
+
+// ═══════════════════════════════════════
+// APP INIT
+// ═══════════════════════════════════════
+async function init() {
+  // Always use hardcoded credentials
+  initSupabase(SUPABASE_URL, SUPABASE_KEY);
+
+  // Restore session
+  const savedUser = JSON.parse(localStorage.getItem('kst_user') || 'null');
+  if (savedUser) {
+    currentUser = savedUser;
+    afterLogin();
+    return;
+  }
+  showScreen('loginScreen');
+}
+
+// ═══════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  const header = document.getElementById('appHeader');
+  if (id === 'loginScreen' || id === 'setupScreen') {
+    header.style.display = 'none';
+  } else {
+    header.style.display = 'flex';
+    if (currentUser) {
+      document.getElementById('headerUser').textContent =
+        id === 'dashboardScreen' ? currentUser.name : '⬅ Menu';
+    }
+  }
+  window.scrollTo(0, 0);
+}
+
+function showSetup() { 
+  showScreen('setupScreen');
+  // Auto-fill and show seed buttons immediately since key is hardcoded
+  document.getElementById('setupUrl').value = SUPABASE_URL;
+  document.getElementById('setupKey').value = SUPABASE_KEY;
+  document.getElementById('setupActions').style.display = 'block';
+}
+
+// ═══════════════════════════════════════
+// AUTH
+// ═══════════════════════════════════════
+async function doLogin() {
+  const username = document.getElementById('loginUsername').value.trim().toLowerCase();
+  const pin = document.getElementById('loginPin').value.trim();
+  if (!username || !pin) { showToast('Enter username and PIN', 'error'); return; }
+
+  try {
+    const { data, error } = await db
+      .from('kst_staff').select('*').eq('username', username).eq('pin', pin).single();
+
+    if (error || !data) {
+      showToast('Wrong username or PIN', 'error');
+      return;
+    }
+    currentUser = data;
+    localStorage.setItem('kst_user', JSON.stringify(data));
+    afterLogin();
+  } catch(e) {
+    // Offline/setup mode
+    showToast('Could not connect — check setup', 'error');
+  }
+}
+
+async function afterLogin() {
+  await loadBranches();
+  await loadDepartments();
+  showScreen('dashboardScreen');
+  buildDashboard();
+}
+
+function logout() {
+  currentUser = null;
+  localStorage.removeItem('kst_user');
+  showScreen('loginScreen');
+  document.getElementById('loginUsername').value = '';
+  document.getElementById('loginPin').value = '';
+}
+
+// ═══════════════════════════════════════
+// DASHBOARD
+// ═══════════════════════════════════════
+function buildDashboard() {
+  const h = new Date().getHours();
+  const greet = h < 12 ? 'morning' : h < 17 ? 'afternoon' : 'evening';
+  document.getElementById('timeGreet').textContent = greet;
+  document.getElementById('welcomeName').textContent = currentUser.name.split(' ')[0];
+
+  const role = currentUser.role;
+  const sub = { supervisor: 'Supervisor', manager: 'Branch Manager', cost_control: 'Cost Control',
+    director: 'Director', dispatch: 'Dispatch Manager' };
+  document.getElementById('welcomeSub').textContent =
+    (currentUser.branch_name || 'All Branches') + ' · ' + (sub[role] || role);
+
+  const grid = document.getElementById('actionGrid');
+  grid.innerHTML = '';
+
+  const actions = [];
+
+  if (['supervisor','manager','dispatch'].includes(role)) {
+    actions.push({
+      icon: '📋', label: 'New Daily Entry', desc: 'Display, Bar or Gelato',
+      fn: 'openNewEntry()'
+    });
+  }
+
+  if (['manager','cost_control','director'].includes(role)) {
+    actions.push({
+      icon: '⚖️', label: 'Reconcile', desc: 'Add sales & explain variances',
+      fn: "showScreen('historyScreen')"
+    });
+  }
+
+  actions.push({
+    icon: '📅', label: 'Entry History', desc: 'View past entries',
+    fn: "openHistory()"
+  });
+
+  if (['cost_control','director','manager'].includes(role)) {
+    actions.push({
+      icon: '📊', label: 'Reports', desc: 'Daily, weekly, monthly',
+      fn: "showToast('Reports coming in Phase 4')"
+    });
+  }
+
+  if (role === 'dispatch') {
+    actions.push({
+      icon: '🚚', label: 'Dispatch Entry', desc: 'Log stock sent to branches',
+      fn: "showToast('Dispatch module coming in Phase 5')"
+    });
+  }
+
+  actions.push({
+    icon: '🚪', label: 'Sign Out', desc: '',
+    fn: 'logout()', full: true
+  });
+
+  actions.forEach(a => {
+    const div = document.createElement('div');
+    div.className = 'action-card' + (a.full ? ' full-width' : '');
+    div.onclick = new Function(a.fn);
+    div.innerHTML = `
+      <div class="action-icon">${a.icon}</div>
+      <div>
+        <div class="action-label">${a.label}</div>
+        ${a.desc ? `<div class="action-desc">${a.desc}</div>` : ''}
+      </div>
+    `;
+    grid.appendChild(div);
+  });
+}
+
+// ═══════════════════════════════════════
+// LOAD REFERENCE DATA
+// ═══════════════════════════════════════
+async function loadBranches() {
+  try {
+    const { data } = await db.from('branches').select('*').order('name');
+    if (data) branches = data;
+  } catch(e) {}
+}
+
+async function loadDepartments() {
+  try {
+    const { data } = await db.from('kst_departments').select('*').order('name');
+    if (data) departments = data;
+  } catch(e) {}
+}
+
+// ═══════════════════════════════════════
+// NEW ENTRY FLOW
+// ═══════════════════════════════════════
+function openNewEntry() {
+  showScreen('startEntryScreen');
+
+  // Pre-fill staff name
+  document.getElementById('entryStaffName').value = currentUser.name;
+
+  // Set today's date
+  document.getElementById('entryDate').value = new Date().toISOString().split('T')[0];
+
+  // Fill branch dropdown
+  const branchSel = document.getElementById('entryBranch');
+  branchSel.innerHTML = '<option value="">Select branch...</option>';
+  const allowedBranches = currentUser.branch_id
+    ? branches.filter(b => b.id === currentUser.branch_id)
+    : branches;
+  allowedBranches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    if (currentUser.branch_id === b.id) opt.selected = true;
+    branchSel.appendChild(opt);
+  });
+
+  // Fill department dropdown (exclude dispatch for non-dispatch users)
+  const deptSel = document.getElementById('entryDepartment');
+  deptSel.innerHTML = '<option value="">Select department...</option>';
+  const allowedDepts = currentUser.role === 'dispatch'
+    ? departments.filter(d => d.type === 'dispatch')
+    : departments.filter(d => d.type !== 'dispatch');
+  allowedDepts.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = d.name;
+    deptSel.appendChild(opt);
+  });
+}
+
+async function startEntry() {
+  const staffName = document.getElementById('entryStaffName').value.trim();
+  const branchId = document.getElementById('entryBranch').value;
+  const deptId = document.getElementById('entryDepartment').value;
+  const date = document.getElementById('entryDate').value;
+
+  if (!staffName || !branchId || !deptId || !date) {
+    showToast('Please fill all fields', 'error'); return;
+  }
+
+  const branch = branches.find(b => b.id === branchId);
+  const dept = departments.find(d => d.id === deptId);
+
+  currentEntry = {
+    staffName,
+    branchId,
+    branchName: branch?.name || '',
+    departmentId: deptId,
+    departmentName: dept?.name || '',
+    date,
+    itemData: {},
+    status: 'draft'
+  };
+
+  // Load items for this branch + dept
+  try {
+    const { data: items } = await supabase
+      .from('kst_items')
+      .select('*')
+      .eq('branch_id', branchId)
+      .eq('department_id', deptId)
+      .eq('active', true)
+      .order('category')
+      .order('name');
+
+    if (!items || items.length === 0) {
+      showToast('No items found for this branch/department', 'error');
+      return;
+    }
+
+    // Load previous day closing as opening stock
+    const prevDate = getPrevDate(date);
+    let prevClosing = {};
+    try {
+      const { data: prev } = await supabase
+        .from('kst_stock_entries')
+        .select('item_id, closing_stock')
+        .eq('branch_id', branchId)
+        .eq('department_id', deptId)
+        .eq('entry_date', prevDate)
+        .eq('status', 'submitted');
+      if (prev) prev.forEach(p => { prevClosing[p.item_id] = p.closing_stock; });
+    } catch(e) {}
+
+    currentEntry.items = items;
+    currentEntry.prevClosing = prevClosing;
+
+    // Check for existing draft
+    try {
+      const { data: existing } = await supabase
+        .from('kst_stock_entries')
+        .select('*')
+        .eq('branch_id', branchId)
+        .eq('department_id', deptId)
+        .eq('entry_date', date)
+        .not('status', 'eq', 'submitted');
+      if (existing && existing.length > 0) {
+        existing.forEach(e => {
+          currentEntry.itemData[e.item_id] = {
+            received: e.received, added_stock: e.added_stock,
+            returns: e.returns, return_reason_id: e.return_reason_id,
+            return_notes: e.return_notes, physical_count: e.physical_count,
+            spoilage: e.spoilage, internal_use: e.internal_use,
+            internal_use_reason: e.internal_use_reason
+          };
+        });
+        showToast('Loaded existing draft');
+      }
+    } catch(e) {}
+
+    buildItemEntryScreen(items);
+    showScreen('itemEntryScreen');
+
+  } catch(e) {
+    showToast('Error loading items — check connection', 'error');
+  }
+}
+
+function getPrevDate(dateStr) {
+  const d = new Date(dateStr);
+  d.setDate(d.getDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
+// ═══════════════════════════════════════
+// BUILD ITEM ENTRY UI
+// ═══════════════════════════════════════
+function buildItemEntryScreen(items) {
+  // Entry meta bar
+  document.getElementById('entryMeta').innerHTML = `
+    <div class="entry-meta-item"><strong>${currentEntry.branchName}</strong>Branch</div>
+    <div class="entry-meta-item"><strong>${currentEntry.departmentName}</strong>Dept</div>
+    <div class="entry-meta-item"><strong>${formatDate(currentEntry.date)}</strong>Date</div>
+    <div class="entry-meta-item"><strong>${currentEntry.staffName}</strong>Staff</div>
+  `;
+
+  document.getElementById('itemsTotal').textContent = items.length;
+
+  // Group by category
+  const byCategory = {};
+  items.forEach(item => {
+    if (!byCategory[item.category]) byCategory[item.category] = [];
+    byCategory[item.category].push(item);
+  });
+
+  const isDept = departments.find(d => d.id === currentEntry.departmentId);
+  const isBar = isDept?.type === 'bar';
+
+  const list = document.getElementById('itemsList');
+  list.innerHTML = '';
+
+  Object.entries(byCategory).forEach(([cat, catItems]) => {
+    const header = document.createElement('div');
+    header.className = 'category-header';
+    header.textContent = cat;
+    list.appendChild(header);
+
+    catItems.forEach(item => {
+      list.appendChild(buildItemRow(item, isBar));
+    });
+  });
+
+  updateProgress();
+}
+
+function buildItemRow(item, isBar) {
+  const saved = currentEntry.itemData[item.id] || {};
+  const opening = currentEntry.prevClosing[item.id] ?? 0;
+
+  const div = document.createElement('div');
+  div.className = 'item-row';
+  div.id = 'row_' + item.id;
+
+  const hasData = saved.physical_count !== undefined && saved.physical_count !== null;
+  const variance = hasData
+    ? (saved.physical_count - (opening + (saved.received||0) + (saved.added_stock||0) - (saved.returns||0) - (saved.spoilage||0) - (saved.internal_use||0)))
+    : null;
+  const hasVariance = variance !== null && variance !== 0;
+
+  div.innerHTML = `
+    <div class="item-row-header" onclick="toggleItem('${item.id}')">
+      <div>
+        <div class="item-name">${item.name}</div>
+        <div class="item-uom">${item.uom}${item.item_code ? ' · ' + item.item_code : ''}</div>
+      </div>
+      <div class="item-status-dot ${hasVariance ? 'has-variance' : hasData ? 'has-data' : ''}" id="dot_${item.id}"></div>
+    </div>
+    <div class="item-fields" id="fields_${item.id}">
+      <div class="item-fields-grid">
+        <div class="field-group">
+          <label>Opening Stock</label>
+          <input class="field-opening" type="number" value="${opening}" readonly>
+        </div>
+        <div class="field-group">
+          <label>Received</label>
+          <input type="number" id="received_${item.id}" value="${saved.received||''}" placeholder="0" min="0"
+            onchange="updateCalc('${item.id}')">
+        </div>
+        <div class="field-group">
+          <label>Added Stock</label>
+          <input type="number" id="added_${item.id}" value="${saved.added_stock||''}" placeholder="0" min="0"
+            onchange="updateCalc('${item.id}')">
+        </div>
+        <div class="field-group">
+          <label>Physical Count</label>
+          <input type="number" id="count_${item.id}" value="${saved.physical_count!==undefined?saved.physical_count:''}" placeholder="Count now"
+            onchange="updateCalc('${item.id}')">
+        </div>
+        <div class="returns-row">
+          <div class="field-group">
+            <label>Returns / Removed</label>
+            <input type="number" id="returns_${item.id}" value="${saved.returns||''}" placeholder="0" min="0"
+              onchange="updateCalc('${item.id}')">
+          </div>
+          <div class="field-group">
+            <label>Reason</label>
+            <select id="reason_${item.id}">
+              <option value="">Select reason...</option>
+              <option value="old_stock" ${saved.return_reason_id==='old_stock'?'selected':''}>Old Stock</option>
+              <option value="damage" ${saved.return_reason_id==='damage'?'selected':''}>Damage</option>
+              <option value="bar_use" ${saved.return_reason_id==='bar_use'?'selected':''}>Bar Use</option>
+              <option value="sampling" ${saved.return_reason_id==='sampling'?'selected':''}>Sampling</option>
+              <option value="wastage" ${saved.return_reason_id==='wastage'?'selected':''}>Wastage</option>
+            </select>
+          </div>
+        </div>
+        ${isBar ? `
+        <div class="field-group">
+          <label>Spoilage</label>
+          <input type="number" id="spoilage_${item.id}" value="${saved.spoilage||''}" placeholder="0" min="0"
+            onchange="updateCalc('${item.id}')">
+        </div>
+        <div class="field-group">
+          <label>Internal Use (BAN/Bar)</label>
+          <input type="number" id="internal_${item.id}" value="${saved.internal_use||''}" placeholder="0" min="0"
+            onchange="updateCalc('${item.id}')">
+        </div>
+        ` : ''}
+      </div>
+      <div class="variance-display variance-pending" id="variance_${item.id}" style="margin-top:8px">
+        ${variance !== null
+          ? (variance === 0 ? '✓ No variance' : `⚠ Variance: ${variance > 0 ? '+' : ''}${variance.toFixed(2)}`)
+          : 'Enter physical count to see variance'}
+      </div>
+    </div>
+  `;
+
+  // Store opening for calculations
+  div.dataset.opening = opening;
+
+  return div;
+}
+
+function toggleItem(itemId) {
+  const fields = document.getElementById('fields_' + itemId);
+  const isOpen = fields.classList.contains('open');
+  // Close all others
+  document.querySelectorAll('.item-fields.open').forEach(f => f.classList.remove('open'));
+  if (!isOpen) fields.classList.add('open');
+}
+
+function updateCalc(itemId) {
+  const row = document.getElementById('row_' + itemId);
+  const opening = parseFloat(row.dataset.opening) || 0;
+  const received = parseFloat(document.getElementById('received_' + itemId)?.value) || 0;
+  const added = parseFloat(document.getElementById('added_' + itemId)?.value) || 0;
+  const returns_ = parseFloat(document.getElementById('returns_' + itemId)?.value) || 0;
+  const spoilage = parseFloat(document.getElementById('spoilage_' + itemId)?.value) || 0;
+  const internal = parseFloat(document.getElementById('internal_' + itemId)?.value) || 0;
+  const countEl = document.getElementById('count_' + itemId);
+  const count = countEl.value !== '' ? parseFloat(countEl.value) : null;
+
+  const closing = opening + received + added - returns_ - spoilage - internal;
+  const variance = count !== null ? count - closing : null;
+
+  // Update variance display
+  const varEl = document.getElementById('variance_' + itemId);
+  if (variance !== null) {
+    if (variance === 0) {
+      varEl.className = 'variance-display variance-ok';
+      varEl.textContent = '✓ No variance';
+    } else {
+      varEl.className = 'variance-display variance-bad';
+      varEl.textContent = `⚠ Variance: ${variance > 0 ? '+' : ''}${variance.toFixed(2)}`;
+    }
+  } else {
+    varEl.className = 'variance-display variance-pending';
+    varEl.textContent = 'Enter physical count to see variance';
+  }
+
+  // Update dot
+  const dot = document.getElementById('dot_' + itemId);
+  if (variance !== null && variance !== 0) {
+    dot.className = 'item-status-dot has-variance';
+  } else if (count !== null) {
+    dot.className = 'item-status-dot has-data';
+  } else {
+    dot.className = 'item-status-dot';
+  }
+
+  // Save to currentEntry
+  currentEntry.itemData[itemId] = {
+    received, added_stock: added, returns: returns_,
+    return_reason_id: document.getElementById('reason_' + itemId)?.value || null,
+    physical_count: count,
+    spoilage, internal_use: internal,
+    opening_stock: opening
+  };
+
+  updateProgress();
+}
+
+function updateProgress() {
+  const total = currentEntry.items?.length || 0;
+  if (!total) return;
+  const filled = Object.values(currentEntry.itemData)
+    .filter(d => d.physical_count !== null && d.physical_count !== undefined).length;
+  const variances = Object.values(currentEntry.itemData).filter(d => {
+    if (d.physical_count === null || d.physical_count === undefined) return false;
+    const closing = d.opening_stock + d.received + d.added_stock - d.returns - (d.spoilage||0) - (d.internal_use||0);
+    return d.physical_count !== closing;
+  }).length;
+
+  document.getElementById('itemsFilled').textContent = filled;
+  document.getElementById('itemsVariance').textContent = variances;
+  const pct = total ? (filled / total * 100).toFixed(0) : 0;
+  document.getElementById('entryProgress').style.width = pct + '%';
+}
+
+// ═══════════════════════════════════════
+// SAVE / SUBMIT
+// ═══════════════════════════════════════
+async function saveEntry(status) {
+  if (!currentEntry.items?.length) return;
+
+  const rows = currentEntry.items.map(item => {
+    const d = currentEntry.itemData[item.id] || {};
+    const opening = currentEntry.prevClosing[item.id] ?? 0;
+    return {
+      entry_date: currentEntry.date,
+      branch_id: currentEntry.branchId,
+      department_id: currentEntry.departmentId,
+      item_id: item.id,
+      opening_stock: opening,
+      received: d.received || 0,
+      added_stock: d.added_stock || 0,
+      returns: d.returns || 0,
+      return_reason_id: d.return_reason_id || null,
+      spoilage: d.spoilage || 0,
+      internal_use: d.internal_use || 0,
+      physical_count: d.physical_count ?? null,
+      submitted_by: currentUser.id,
+      submitted_at: status === 'submitted' ? new Date().toISOString() : null,
+      status
+    };
+  });
+
+  try {
+    // Upsert — delete existing for this date/branch/dept then insert
+    await db.from('kst_stock_entries')
+      .delete()
+      .eq('branch_id', currentEntry.branchId)
+      .eq('department_id', currentEntry.departmentId)
+      .eq('entry_date', currentEntry.date)
+      .neq('status', 'reconciled');
+
+    const { error } = await db.from('kst_stock_entries').insert(rows);
+    if (error) throw error;
+    return true;
+  } catch(e) {
+    console.error(e);
+    return false;
+  }
+}
+
+async function saveDraft() {
+  const ok = await saveEntry('draft');
+  showToast(ok ? 'Draft saved' : 'Save failed', ok ? 'success' : 'error');
+}
+
+async function submitEntry() {
+  const total = currentEntry.items?.length || 0;
+  const filled = Object.values(currentEntry.itemData)
+    .filter(d => d.physical_count !== null && d.physical_count !== undefined).length;
+
+  if (filled < total) {
+    const missing = total - filled;
+    if (!confirm(`${missing} item(s) have no physical count. Submit anyway?`)) return;
+  }
+
+  const ok = await saveEntry('submitted');
+  if (ok) {
+    showToast('Entry submitted ✓', 'success');
+    setTimeout(() => showScreen('dashboardScreen'), 1200);
+  } else {
+    showToast('Submit failed — try again', 'error');
+  }
+}
+
+// ═══════════════════════════════════════
+// HISTORY
+// ═══════════════════════════════════════
+async function openHistory() {
+  showScreen('historyScreen');
+
+  const sel = document.getElementById('histBranch');
+  sel.innerHTML = '<option value="">All branches</option>';
+  branches.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    if (currentUser.branch_id === b.id) opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  document.getElementById('histDate').value = new Date().toISOString().split('T')[0];
+  await loadHistory();
+}
+
+async function loadHistory() {
+  const branchId = document.getElementById('histBranch')?.value;
+  const date = document.getElementById('histDate')?.value;
+  const list = document.getElementById('historyList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading...</div>';
+
+  try {
+    let q = db.from('kst_stock_entries')
+      .select('entry_date, branch_id, department_id, status, submitted_at, submitted_by')
+      .order('entry_date', { ascending: false })
+      .order('submitted_at', { ascending: false })
+      .limit(60);
+
+    if (branchId) q = q.eq('branch_id', branchId);
+    if (date) q = q.eq('entry_date', date);
+
+    const { data } = await q;
+
+    if (!data || !data.length) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>`;
+      return;
+    }
+
+    // Deduplicate to one row per date/branch/dept/status
+    const seen = new Set();
+    const unique = [];
+    data.forEach(r => {
+      const key = `${r.entry_date}-${r.branch_id}-${r.department_id}`;
+      if (!seen.has(key)) { seen.add(key); unique.push(r); }
+    });
+
+    const bMap = Object.fromEntries(branches.map(b => [b.id, b.name]));
+    const dMap = Object.fromEntries(departments.map(d => [d.id, d.name]));
+
+    const card = document.createElement('div');
+    card.className = 'card';
+    unique.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'history-row';
+      const chipClass = r.status === 'submitted' ? 'chip-submitted' :
+        r.status === 'reconciled' ? 'chip-reconciled' : 'chip-draft';
+      row.innerHTML = `
+        <div>
+          <div class="history-date">${formatDate(r.entry_date)}</div>
+          <div class="history-meta">${bMap[r.branch_id]||'?'} · ${dMap[r.department_id]||'?'}</div>
+        </div>
+        <span class="status-chip ${chipClass}">${r.status}</span>
+      `;
+      card.appendChild(row);
+    });
+    list.innerHTML = '';
+    list.appendChild(card);
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Could not load history</div></div>`;
+  }
+}
+
+// ═══════════════════════════════════════
+// SETUP & SEEDING
+// ═══════════════════════════════════════
+function saveConfig() {
+  document.getElementById('setupActions').style.display = 'block';
+  showToast('Ready — run seed below', 'success');
+}
+
+async function seedData() {
+  const log = document.getElementById('setupLog');
+  log.textContent = 'Seeding...';
+
+  try {
+    // Test connection first
+    log.textContent = 'Testing connection...';
+    const test = await db.from('kst_departments').select('count').limit(1);
+    if (test.error) throw new Error('Connection failed: ' + test.error.message);
+    log.textContent = 'Connected ✓ Seeding departments...';
+
+    const d1 = await db.from('kst_departments').upsert([
+      { name: 'Display', type: 'display' },
+      { name: 'Bar', type: 'bar' },
+      { name: 'Gelato', type: 'gelato' },
+      { name: 'Dry Goods & Packaging', type: 'dry_goods' },
+      { name: 'Dispatch / Production', type: 'dispatch' }
+    ], { onConflict: 'name' });
+    if (d1.error) throw new Error('Departments: ' + d1.error.message);
+    log.textContent += '\nDepartments ✓  Seeding reasons...';
+
+    const d2 = await db.from('kst_removal_reasons').upsert([
+      { name: 'Old Stock', applies_to: 'both' },
+      { name: 'Damage', applies_to: 'both' },
+      { name: 'Bar Use', applies_to: 'display' },
+      { name: 'Sampling', applies_to: 'display' },
+      { name: 'Spoilage', applies_to: 'bar' },
+      { name: 'BAN / Complimentary', applies_to: 'bar' },
+      { name: 'Restaurant Use', applies_to: 'bar' },
+      { name: 'Wastage', applies_to: 'both' }
+    ], { onConflict: 'name' });
+    if (d2.error) throw new Error('Reasons: ' + d2.error.message);
+    log.textContent += '\nReasons ✓  Seeding staff...';
+
+    const d3 = await db.from('kst_staff').upsert([
+      { name: 'Admin', username: 'admin', pin: '0000', role: 'director' },
+      { name: 'Becca', username: 'becca', pin: '1234', role: 'director' }
+    ], { onConflict: 'username' });
+    if (d3.error) throw new Error('Staff: ' + d3.error.message);
+    log.textContent += '\nStaff ✓\n\nAll done! You can now log in.';
+    showToast('Seed complete ✓', 'success');
+    await loadBranches();
+    await loadDepartments();
+  } catch(e) {
+    log.textContent += '\n\nERROR: ' + e.message;
+    showToast('Seed failed', 'error');
+  }
+}
+
+async function seedDisplayItems() {
+  const log = document.getElementById('setupLog');
+  log.textContent = 'Seeding display items...';
+
+  try {
+    const { data: branchData } = await db.from('branches').select('id,name');
+    const { data: deptData } = await db.from('kst_departments').select('id,name').eq('type','display');
+    const munyonyo = branchData?.find(b => b.name === 'Munyonyo');
+    const display = deptData?.[0];
+    if (!munyonyo || !display) { log.textContent = 'Run seed first'; return; }
+
+    const items = [
+      // Bread
+      ...['Brioch Bread','Brown Bread Rolls x12','Choc Orange Bread','Coconut Bread','Cream Buns 6 Pack',
+         'Fruit Bread','Gluten Free Bread','Hamburger Buns 6 Pack @120g','Milk Bread','Milk Buns x12',
+         'Multigrain Big','Rye Bread','Salty Brown Bread 1kg','Salty White Bread 1kg','Sweet Brown Bread 1kg',
+         'Sweet White Bread 1kg','Tear and Share','White Baguette','White Bread Rolls x12',
+         'Whole Meal Bread','Whole Wheat Bread'].map(n => ({
+           branch_id: munyonyo.id, department_id: display.id,
+           name: n, category: 'Bread', uom: 'Pc', active: true })),
+      // Pastries (sample)
+      ...['Almond Croissant 100g','Almond Sticks','Banana Muffin','Beef Pie','Biscuito Tart',
+         'Blueberry Muffin','Cake 750g','Carrot Muffin','Cheese Sticks','Cherry Danish','Cherry Muffin',
+         'Chicken Pie','Choc Chip Cookies','Choc Croissant 100g','Choco Mint Cookies','Chocolate Muffin',
+         'Chocolate Pack','Chunky Chocochip Cookies','Cinnamon Roll 70g','Cookie x6','Danish Twist 70g',
+         'Diplomate Cake Slice','Donut Balls 6 Pack','Donut Plain 100g','Focaccia','Fruit Danish 70g',
+         'Ginger Cookies','Glazed Donut','Jam Donuts','Lemon Muffin','Madeleine 4 Pack',
+         'Mini Cookies 15 Pack','Mini Muffin 6 Pack','Mini Pies','Oatmeal Cookies x2','Opera Slice',
+         'Pain Au Choc 70g','Palmiers','Plain Croissant 100g','Plain Muffin','Raisin Muffin',
+         'Scones 2 Pack','Speculoos Cookies','Tutti Frutti','Viennesse Cookies',
+         'Chocolate Madelines'].map(n => ({
+           branch_id: munyonyo.id, department_id: display.id,
+           name: n, category: 'Pastries', uom: 'Pc', active: true })),
+      // Hot Snacks
+      ...['Beef Chap','Beef Kebab','Beef Samosa','Chapatti','Chicken Chap','Chicken Fajita',
+         'Chicken Kebab','Chicken Samosa','Chicken Spring Roll','Chicken Wrap','English Sandwich',
+         'Fish Balls','Meat Balls','Mozzarella Chicken Stick','Pizza Slice','Rolex','Sausage Pair',
+         'Veg Bombo','Veg Samosa'].map(n => ({
+           branch_id: munyonyo.id, department_id: display.id,
+           name: n, category: 'Hot Snacks', uom: 'Pc', active: true })),
+      // Cake Slices
+      ...['American Chocolate','Black Forest','Blueberry Tart','Butterscotch','Chocolate Fudge',
+         'French Mignon','Milky Coconut','Mixed Flavour','Orange Cake','Pave Chocolat',
+         'Red Velvet','Snickers Slice','Strawberry Tart'].map(n => ({
+           branch_id: munyonyo.id, department_id: display.id,
+           name: n, category: 'Cake Slices', uom: 'Slice', active: true })),
+      // Groceries (sample)
+      ...['Apple Pie Granola 450g','Chai Granola Bar','Chai Spice Granola 450g','Chipotle Tabasco',
+         'Choco Almond Granola 450g','Choco Granola Bar','Crackies BBQ 120g','Ginger Cookies',
+         'Manawar Cashew Nuts Chilli 100g','Manawar Cashew Nuts Salted 100g',
+         'Manawar Cashew Nuts Unsalted 100g','Manawar Raisins 250g','Orchid Honey 450g',
+         'Orchid Honey 700g','Peanut Power Granola 450g','Pina Colada Granola 450g',
+         'Speculous Cookies'].map(n => ({
+           branch_id: munyonyo.id, department_id: display.id,
+           name: n, category: 'Groceries', uom: 'Pc', active: true })),
+    ];
+
+    const { error } = await db.from('kst_items').insert(items);
+    if (error) throw error;
+    log.textContent = '✓ Munyonyo display items seeded (' + items.length + ' items).';
+    showToast('Items seeded', 'success');
+  } catch(e) {
+    log.textContent = 'Error: ' + e.message;
+  }
+}
+
+// ═══════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════
+function formatDate(str) {
+  if (!str) return '';
+  const d = new Date(str + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function showToast(msg, type = '') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast' + (type ? ' ' + type : '');
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════
+// BOOT
+// ═══════════════════════════════════════
+init();
+</script>
+</body>
+</html>

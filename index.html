@@ -999,8 +999,8 @@ function showScreen(id) {
     if (reconTab) reconTab.style.display = canRecon ? 'flex' : 'none';
 
     // Adjust grid columns for nav
-    const nav = document.getElementById('bottomNav');
-    if (nav) nav.style.gridTemplateColumns = canRecon ? 'repeat(6,1fr)' : 'repeat(5,1fr)';
+    const bottomNavEl = document.getElementById('bottomNav');
+    if (bottomNavEl) bottomNavEl.style.gridTemplateColumns = canRecon ? 'repeat(6,1fr)' : 'repeat(5,1fr)';
 
     // Update active nav item
     const navMap = {

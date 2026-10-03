@@ -2085,16 +2085,22 @@ function openReports() {
   // Fill branch dropdown based on role
   const sel = document.getElementById('repBranch');
   sel.innerHTML = '<option value="">All Branches</option>';
-  const allowed = ['director','cost_control','manager','dispatch'].includes(currentUser?.role)
-    ? branches
-    : branches.filter(b => b.id == currentUser?.branch_id);
+  const canSeeAllBranches = ['director','cost_control','manager'].includes(currentUser?.role);
+  if (canSeeAllBranches) {
+    sel.innerHTML = '<option value="">All Branches</option>';
+  } else {
+    sel.innerHTML = '';
+  }
+  const allowed = canSeeAllBranches ? branches : branches.filter(b => b.id == currentUser?.branch_id);
   allowed.forEach(b => {
     const opt = document.createElement('option');
     opt.value = b.id;
     opt.textContent = b.name;
-    if (currentUser?.branch_id == b.id && currentUser?.role === 'supervisor') opt.selected = true;
+    if (!canSeeAllBranches) opt.selected = true;
     sel.appendChild(opt);
   });
+  sel.disabled = !canSeeAllBranches;
+  if (!canSeeAllBranches) sel.style.opacity = '0.7';
 
   // Fill dept dropdown
   const dsel = document.getElementById('repDept');

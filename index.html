@@ -693,11 +693,21 @@
 
   <div id="reconItemsList"></div>
 
-  <div style="margin-top:20px;display:grid;gap:10px">
-    <button class="btn btn-success" onclick="submitRecon('final')">✓ Submit to Director (Final)</button>
-    <button class="btn btn-outline" onclick="submitRecon('reconciled')">💾 Save Reconciliation Draft</button>
+  <div style="margin-top:20px;display:grid;gap:10px" id="reconActionBtns">
+    <button class="btn btn-success" id="btnSubmitFinal" onclick="submitRecon('final')">✓ Submit to Director (Final)</button>
+    <button class="btn btn-outline" id="btnSaveRecon" onclick="submitRecon('reconciled')">💾 Save Reconciliation Draft</button>
+    <div id="reconSendBackSection" style="display:none">
+      <div style="background:#FEF9E7;border-radius:8px;padding:12px;margin-bottom:8px">
+        <div style="font-size:12px;font-weight:700;color:var(--orange);margin-bottom:8px">📤 Send Back to Manager</div>
+        <textarea id="sendBackComment" placeholder="Add your comment for the manager..." 
+          style="width:100%;border:1.5px solid var(--border);border-radius:6px;padding:8px;font-size:13px;margin:0;min-height:70px"></textarea>
+        <button class="btn btn-danger btn-sm" style="margin-top:8px;width:100%" onclick="sendBackToManager()">Send Back with Comment</button>
+      </div>
+    </div>
     <div id="reconLockMsg" style="display:none;background:#FDEDEC;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;text-align:center">
       🔒 This reconciliation has been finalised
+    </div>
+    <div id="reconSendBackMsg" style="display:none;background:#FEF9E7;color:var(--orange);padding:10px 14px;border-radius:8px;font-size:13px">
     </div>
   </div>
 </div>
@@ -983,13 +993,24 @@ function showScreen(id) {
       backBtn.textContent = '⬅ Back';
       backBtn.onclick = goBack;
     }
+    // Show/hide reconcile tab based on role
+    const canRecon = ['manager','cost_control','director'].includes(currentUser?.role);
+    const reconTab = document.getElementById('nav_recon');
+    if (reconTab) reconTab.style.display = canRecon ? 'flex' : 'none';
+
+    // Adjust grid columns for nav
+    const nav = document.getElementById('bottomNav');
+    if (nav) nav.style.gridTemplateColumns = canRecon ? 'repeat(6,1fr)' : 'repeat(5,1fr)';
+
     // Update active nav item
     const navMap = {
       dashboardScreen: 'home',
       startEntryScreen: 'entry', itemEntryScreen: 'entry',
-      historyScreen: 'history', reconScreen: 'history',
+      historyScreen: 'history',
+      reconScreen: 'recon',
       reportsScreen: 'reports',
-      setupScreen: 'more'
+      setupScreen: 'more',
+      staffScreen: 'more', itemsScreen: 'more'
     };
     document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
     const activeNav = navMap[id];
@@ -1001,6 +1022,7 @@ function showScreen(id) {
 function navTo(dest) {
   if (dest === 'home') { navStack = []; showScreen('dashboardScreen'); }
   else if (dest === 'entry') openNewEntry();
+  else if (dest === 'recon') openHistory(); // history shows submitted entries to reconcile
   else if (dest === 'history') openHistory();
   else if (dest === 'reports') openReports();
   else if (dest === 'more') showSetup();
@@ -1652,7 +1674,20 @@ async function loadHistory() {
         </div>
         <span class="status-chip ${chipClass}">${statusLabel}</span>
       `;
-      row.onclick = () => openReconScreen(r.entry_date, r.branch_id, r.department_id);
+      // Determine if this person can open/action this entry
+      const role = currentUser?.role;
+      const canOpen = 
+        // Manager/cost_control/director can open submitted or reconciled
+        (['manager','cost_control','director'].includes(role) && ['submitted','reconciled','final'].includes(r.status)) ||
+        // Supervisor can open their own draft or submitted (read-only after submit)
+        (['supervisor','dispatch'].includes(role) && ['draft','submitted'].includes(r.status));
+      
+      if (canOpen) {
+        row.onclick = () => openReconScreen(r.entry_date, r.branch_id, r.department_id);
+      } else {
+        row.style.cursor = 'default';
+        row.style.opacity = '0.7';
+      }
       card.appendChild(row);
     });
     list.innerHTML = '';
@@ -2087,15 +2122,49 @@ async function openReconScreen(date, branchId, deptId) {
 
     reconEntries = data;
     buildReconTable(data);
-    // Lock if final
+    
+    const role = currentUser?.role;
     const isFinal = data.every(e => e.status === 'final');
-    const isReconciled = data.every(e => ['reconciled','final'].includes(e.status));
+    const isSubmitted = data.every(e => e.status === 'submitted');
+    const isReconDraft = data.every(e => ['reconciled'].includes(e.status));
+    const hasSendBack = data[0]?.send_back_comment;
+
+    const btnFinal = document.getElementById('btnSubmitFinal');
+    const btnSave = document.getElementById('btnSaveRecon');
+    const lockMsg = document.getElementById('reconLockMsg');
+    const sendBackSection = document.getElementById('reconSendBackSection');
+    const sendBackMsg = document.getElementById('reconSendBackMsg');
+
+    // Reset
+    if (btnFinal) btnFinal.style.display = 'block';
+    if (btnSave) btnSave.style.display = 'block';
+    if (lockMsg) lockMsg.style.display = 'none';
+    if (sendBackSection) sendBackSection.style.display = 'none';
+    if (sendBackMsg) sendBackMsg.style.display = 'none';
+
     if (isFinal) {
-      document.getElementById('reconLockMsg').style.display = 'block';
+      // Final — locked for all except director who can send back
+      if (lockMsg) lockMsg.style.display = 'block';
+      if (btnFinal) btnFinal.style.display = 'none';
+      if (btnSave) btnSave.style.display = 'none';
+      if (['director','cost_control'].includes(role)) {
+        if (sendBackSection) sendBackSection.style.display = 'block';
+      }
+      document.querySelectorAll('#reconScreen input:not(#sendBackComment)').forEach(i => i.disabled = true);
+    } else if (['supervisor','dispatch'].includes(role)) {
+      // Supervisors see read-only after submit
+      if (btnFinal) btnFinal.style.display = 'none';
+      if (btnSave) btnSave.style.display = 'none';
+      if (lockMsg) { lockMsg.style.display = 'block'; lockMsg.textContent = '🔒 Entry submitted — awaiting manager reconciliation'; }
       document.querySelectorAll('#reconScreen input').forEach(i => i.disabled = true);
-      document.querySelectorAll('#reconScreen button').forEach(b => {
-        if (!b.classList.contains('btn-outline')) b.disabled = true;
-      });
+    }
+
+    // Show send-back comment if exists
+    if (hasSendBack) {
+      if (sendBackMsg) {
+        sendBackMsg.style.display = 'block';
+        sendBackMsg.innerHTML = '📤 Director comment: <strong>' + hasSendBack + '</strong>';
+      }
     }
   } catch(e) {
     document.getElementById('reconItemsList').innerHTML =
@@ -2211,19 +2280,23 @@ function updateReconSummary() {
 async function submitRecon(status) {
   // Check if already final
   const alreadyFinal = reconEntries.some(e => e.status === 'final');
-  if (alreadyFinal && !['director','cost_control'].includes(currentUser.role)) {
+  if (alreadyFinal && !['director','cost_control'].includes(currentUser?.role)) {
     showToast('This reconciliation has been finalised', 'error');
     return;
   }
 
   const newStatus = status || 'reconciled';
-  const label = newStatus === 'final' ? 'Submitted to director ✓' : 'Reconciliation saved ✓';
+  const label = newStatus === 'final' ? '✓ Submitted to Director' : '✓ Reconciliation saved';
 
   try {
-    const updates = reconEntries.map(e => {
+    // Update all entries for this date/branch/dept in one go
+    const entryIds = reconEntries.map(e => e.id);
+    
+    // First update individual sales and notes
+    for (const e of reconEntries) {
       const sales = parseFloat(document.getElementById('sales_' + e.id)?.value) || 0;
       const note = document.getElementById('note_' + e.id)?.value || null;
-      return db.from('kst_stock_entries')
+      const { error } = await db.from('kst_stock_entries')
         .update({
           sales_per_bill: sales,
           variance_notes: note,
@@ -2232,10 +2305,11 @@ async function submitRecon(status) {
           reconciled_at: new Date().toISOString()
         })
         .eq('id', e.id);
-    });
-    await Promise.all(updates);
+      if (error) throw new Error('Update failed: ' + error.message);
+    }
+    
     showToast(label, 'success');
-    setTimeout(() => { openHistory(); }, 1200);
+    setTimeout(() => { openHistory(); }, 1500);
   } catch(err) {
     showToast('Error: ' + err.message, 'error');
   }
@@ -2913,6 +2987,33 @@ async function saveItem() {
 }
 
 // ═══════════════════════════════════════
+// SEND BACK
+// ═══════════════════════════════════════
+async function sendBackToManager() {
+  const comment = document.getElementById('sendBackComment')?.value?.trim();
+  if (!comment) { showToast('Add a comment first', 'error'); return; }
+
+  try {
+    const { error } = await db.from('kst_stock_entries')
+      .update({
+        status: 'reconciled',
+        send_back_comment: comment,
+        send_back_by: currentUser.id,
+        send_back_at: new Date().toISOString()
+      })
+      .eq('entry_date', reconData.date)
+      .eq('branch_id', reconData.branchId)
+      .eq('department_id', reconData.deptId);
+
+    if (error) throw error;
+    showToast('Sent back to manager ✓', 'success');
+    setTimeout(() => openHistory(), 1200);
+  } catch(e) {
+    showToast('Error: ' + e.message, 'error');
+  }
+}
+
+// ═══════════════════════════════════════
 // BOOT
 // ═══════════════════════════════════════
 init();
@@ -2926,6 +3027,10 @@ init();
   <div class="nav-item" id="nav_entry" onclick="navTo('entry')">
     <div class="nav-icon">📋</div>
     <div class="nav-label">Entry</div>
+  </div>
+  <div class="nav-item nav-recon-only" id="nav_recon" onclick="navTo('recon')" style="display:none">
+    <div class="nav-icon">⚖️</div>
+    <div class="nav-label">Reconcile</div>
   </div>
   <div class="nav-item" id="nav_history" onclick="navTo('history')">
     <div class="nav-icon">📅</div>

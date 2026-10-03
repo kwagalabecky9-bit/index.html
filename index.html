@@ -954,6 +954,7 @@
     <button class="btn btn-gold" onclick="seedData()" style="margin-bottom:8px">Seed Branches, Departments & Staff</button>
     <button class="btn btn-outline" onclick="seedDisplayItems()" style="margin-bottom:8px">Seed All Branch Display Items</button>
     <button class="btn btn-outline" onclick="seedBarItems()" style="margin-bottom:8px">Seed All Branch Bar Items</button>
+    <button class="btn btn-outline" onclick="seedGelatoItems()" style="margin-bottom:8px">Seed All Branch Gelato Items</button>
     <div id="setupLog" style="font-size:12px;color:var(--text-light);margin-top:10px;line-height:1.6"></div>
   </div>
 
@@ -2226,6 +2227,83 @@ async function seedBarItems() {
     }
     log.textContent += '\n\n✅ Done! ' + grand + ' bar items across all branches.';
     showToast('Bar items seeded ✓', 'success');
+  } catch(e) {
+    log.textContent += '\n\nERROR: ' + e.message;
+    showToast('Seed failed', 'error');
+  }
+}
+
+
+async function seedGelatoItems() {
+  const log = document.getElementById('setupLog');
+  log.textContent = 'Seeding gelato items...';
+
+  try {
+    await db.from('kst_departments').upsert([
+      { name: 'Gelato', type: 'gelato' }
+    ], { onConflict: 'name' });
+
+    const { data: branchData } = await db.from('branches').select('id,name');
+    const { data: deptData } = await db.from('kst_departments').select('id,name');
+    if (!branchData || !deptData) throw new Error('Could not load branches/depts');
+
+    const gelato = deptData.find(d => d.name === 'Gelato');
+    if (!gelato) throw new Error('Gelato dept not found');
+
+    const GELATO_ITEMS = [
+      { name: 'Amarena', uom: 'g' },
+      { name: 'Amarena Cherries', uom: 'g' },
+      { name: 'Baileys', uom: 'g' },
+      { name: 'Blue Angel', uom: 'g' },
+      { name: 'Blueberry Sorbet', uom: 'g' },
+      { name: 'Bounty Gelato', uom: 'g' },
+      { name: 'Bubble Gum / Puffo', uom: 'g' },
+      { name: 'Caramel', uom: 'g' },
+      { name: 'Cheesecake', uom: 'g' },
+      { name: 'Choco Brownie', uom: 'g' },
+      { name: 'Choco Mint', uom: 'g' },
+      { name: 'Chocolate', uom: 'g' },
+      { name: 'Coffee Baileys', uom: 'g' },
+      { name: 'Cookies & Cream', uom: 'g' },
+      { name: 'Cotton Candy', uom: 'g' },
+      { name: 'Creamy Lemon', uom: 'g' },
+      { name: 'Dolce Latte', uom: 'g' },
+      { name: 'Gelato Cone', uom: 'Pc' },
+      { name: 'Gelato Misto', uom: 'g' },
+      { name: 'Karveli Special', uom: 'g' },
+      { name: 'Kinder Gelato', uom: 'g' },
+      { name: 'Lemon & Mint Sorbet', uom: 'g' },
+      { name: 'Napoleon', uom: 'g' },
+      { name: 'Oreo Cream', uom: 'g' },
+      { name: 'Palle Cere', uom: 'g' },
+      { name: 'Passion Sorbet', uom: 'g' },
+      { name: 'Peach', uom: 'g' },
+      { name: 'Pistachio', uom: 'g' },
+      { name: 'Pomegranate Gelato', uom: 'g' },
+      { name: 'Quella', uom: 'g' },
+      { name: 'Snickers Ai Choc', uom: 'g' },
+      { name: 'Speculoos', uom: 'g' },
+      { name: 'Tiramisu', uom: 'g' },
+      { name: 'Toffee', uom: 'g' },
+      { name: 'Vanilla', uom: 'g' },
+      { name: 'Vegan', uom: 'g' },
+      { name: 'Yoghurt & Cherries', uom: 'g' },
+    ];
+
+    let grand = 0;
+    for (const branch of branchData) {
+      await db.from('kst_items').delete().eq('branch_id', branch.id).eq('department_id', gelato.id);
+      const items = GELATO_ITEMS.map(i => ({
+        ...i, branch_id: branch.id, department_id: gelato.id,
+        category: 'Gelato', active: true
+      }));
+      const { error } = await db.from('kst_items').insert(items);
+      if (error) throw new Error(branch.name + ': ' + error.message);
+      grand += items.length;
+      log.textContent += '\n✓ ' + branch.name + ' — ' + items.length + ' flavours';
+    }
+    log.textContent += '\n\n✅ Done! ' + grand + ' gelato items across all branches.';
+    showToast('Gelato items seeded ✓', 'success');
   } catch(e) {
     log.textContent += '\n\nERROR: ' + e.message;
     showToast('Seed failed', 'error');

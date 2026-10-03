@@ -1172,18 +1172,26 @@ async function saveEntry(status) {
 
   try {
     // Upsert — delete existing for this date/branch/dept then insert
-    await db.from('kst_stock_entries')
+    const { error: delErr } = await db.from('kst_stock_entries')
       .delete()
       .eq('branch_id', currentEntry.branchId)
       .eq('department_id', currentEntry.departmentId)
       .eq('entry_date', currentEntry.date)
       .neq('status', 'reconciled');
 
+    if (delErr) {
+      showToast('Delete error: ' + delErr.message, 'error');
+      return false;
+    }
+
     const { error } = await db.from('kst_stock_entries').insert(rows);
-    if (error) throw error;
+    if (error) {
+      showToast('Insert error: ' + error.message, 'error');
+      return false;
+    }
     return true;
   } catch(e) {
-    console.error(e);
+    showToast('Error: ' + e.message, 'error');
     return false;
   }
 }

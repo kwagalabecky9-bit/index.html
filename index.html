@@ -39,7 +39,7 @@
   .header {
     background: var(--brown);
     color: var(--cream);
-    padding: 14px 20px;
+    padding: 14px 32px;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -53,7 +53,7 @@
   .header-user { font-size: 12px; color: var(--gold-light); cursor: pointer; }
 
   /* ── SCREENS ── */
-  .screen { display: none; padding: 20px; max-width: 640px; margin: 0 auto; }
+  .screen { display: none; padding: 20px; max-width: 1100px; margin: 0 auto; }
   .screen.active { display: block; }
 
   /* ── LOGIN ── */
@@ -1348,10 +1348,9 @@ async function seedData() {
 
 async function seedDisplayItems() {
   const log = document.getElementById('setupLog');
-  log.textContent = 'Seeding display items...';
+  log.textContent = 'Starting full seed...';
 
   try {
-    // Ensure departments exist first
     await db.from('kst_departments').upsert([
       { name: 'Display', type: 'display' },
       { name: 'Bar', type: 'bar' },
@@ -1362,99 +1361,181 @@ async function seedDisplayItems() {
 
     const { data: branchData, error: bErr } = await db.from('branches').select('id,name');
     const { data: deptData, error: dErr } = await db.from('kst_departments').select('id,name');
-    
-    if (bErr) throw new Error('Branches error: ' + bErr.message);
-    if (dErr) throw new Error('Depts error: ' + dErr.message);
+    if (bErr) throw new Error('Branches: ' + bErr.message);
+    if (dErr) throw new Error('Depts: ' + dErr.message);
 
-    log.textContent = 'Branches found: ' + (branchData?.map(b=>b.name).join(', ') || 'NONE');
-    
-    const munyonyo = branchData?.find(b => b.name?.toLowerCase().includes('munyonyo') || b.name?.toLowerCase().includes('mun'));
-    const display = deptData?.find(d => d.name === 'Display');
-    
-    if (!munyonyo) { log.textContent += '\nERROR: No Munyonyo branch. Found: ' + branchData?.map(b=>b.name).join(', '); return; }
-    if (!display) { log.textContent += '\nERROR: Display dept missing.'; return; }
-    log.textContent += '\nUsing: ' + munyonyo.name + ' + ' + display.name;
-    
-    // Delete any previously seeded items for this branch+dept to avoid duplicates
-    await db.from('kst_items').delete().eq('branch_id', munyonyo.id).eq('department_id', display.id);
-    log.textContent += '\nCleared old items...';
+    const getB = name => branchData?.find(b => b.name?.toLowerCase().includes(name.toLowerCase()));
+    const getD = name => deptData?.find(d => d.name === name);
 
-    const items = [
-      // Bread
-      ...['Brioch Bread','Brown Bread Rolls x12','Choc Orange Bread','Coconut Bread','Cream Buns 6 Pack',
-         'Fruit Bread','Gluten Free Bread','Hamburger Buns 6 Pack @120g','Milk Bread','Milk Buns x12',
-         'Multigrain Big','Rye Bread','Salty Brown Bread 1kg','Salty White Bread 1kg','Sweet Brown Bread 1kg',
-         'Sweet White Bread 1kg','Tear and Share','White Baguette','White Bread Rolls x12',
-         'Whole Meal Bread','Whole Wheat Bread'].map(n => ({
-           branch_id: munyonyo.id, department_id: display.id,
-           name: n, category: 'Bread', uom: 'Pc', active: true })),
-      // Pastries (sample)
-      ...['Almond Croissant 100g','Almond Sticks','Banana Muffin','Beef Pie','Biscuito Tart',
-         'Blueberry Muffin','Cake 750g','Carrot Muffin','Cheese Sticks','Cherry Danish','Cherry Muffin',
-         'Chicken Pie','Choc Chip Cookies','Choc Croissant 100g','Choco Mint Cookies','Chocolate Muffin',
-         'Chocolate Pack','Chunky Chocochip Cookies','Cinnamon Roll 70g','Cookie x6','Danish Twist 70g',
-         'Diplomate Cake Slice','Donut Balls 6 Pack','Donut Plain 100g','Focaccia','Fruit Danish 70g',
-         'Ginger Cookies','Glazed Donut','Jam Donuts','Lemon Muffin','Madeleine 4 Pack',
-         'Mini Cookies 15 Pack','Mini Muffin 6 Pack','Mini Pies','Oatmeal Cookies x2','Opera Slice',
-         'Pain Au Choc 70g','Palmiers','Plain Croissant 100g','Plain Muffin','Raisin Muffin',
-         'Scones 2 Pack','Speculoos Cookies','Tutti Frutti','Viennesse Cookies',
-         'Chocolate Madelines'].map(n => ({
-           branch_id: munyonyo.id, department_id: display.id,
-           name: n, category: 'Pastries', uom: 'Pc', active: true })),
-      // Hot Snacks
-      ...['Beef Chap','Beef Kebab','Beef Samosa','Chapatti','Chicken Chap','Chicken Fajita',
-         'Chicken Kebab','Chicken Samosa','Chicken Spring Roll','Chicken Wrap','English Sandwich',
-         'Fish Balls','Meat Balls','Mozzarella Chicken Stick','Pizza Slice','Rolex','Sausage Pair',
-         'Veg Bombo','Veg Samosa'].map(n => ({
-           branch_id: munyonyo.id, department_id: display.id,
-           name: n, category: 'Hot Snacks', uom: 'Pc', active: true })),
-      // Cake Slices
-      ...['American Chocolate','Black Forest','Blueberry Tart','Butterscotch','Chocolate Fudge',
-         'French Mignon','Milky Coconut','Mixed Flavour','Orange Cake','Pave Chocolat',
-         'Red Velvet','Snickers Slice','Strawberry Tart'].map(n => ({
-           branch_id: munyonyo.id, department_id: display.id,
-           name: n, category: 'Cake Slices', uom: 'Slice', active: true })),
-      // Groceries (sample)
-      ...['Apple Pie Granola 450g','Chai Granola Bar','Chai Spice Granola 450g','Chipotle Tabasco',
-         'Choco Almond Granola 450g','Choco Granola Bar','Crackies BBQ 120g','Ginger Cookies',
-         'Manawar Cashew Nuts Chilli 100g','Manawar Cashew Nuts Salted 100g',
-         'Manawar Cashew Nuts Unsalted 100g','Manawar Raisins 250g','Orchid Honey 450g',
-         'Orchid Honey 700g','Peanut Power Granola 450g','Pina Colada Granola 450g',
-         'Speculous Cookies'].map(n => ({
-           branch_id: munyonyo.id, department_id: display.id,
-           name: n, category: 'Groceries', uom: 'Pc', active: true })),
+    const lumumba   = getB('lumumba');
+    const munyonyo  = getB('munyonyo');
+    const kiira     = getB('bukoto') || getB('kiira');
+    const gaba      = getB('gaba');
+    const display   = getD('Display');
+
+    if (!display) throw new Error('Display dept not found. Run Seed Staff first.');
+    log.textContent += '\nBranches: ' + [lumumba,munyonyo,kiira,gaba].map(b=>b?.name||'NOT FOUND').join(', ');
+
+    // ── SHARED ITEMS (all branches) ──────────────────────────
+    const BREAD_SHARED = [
+      'Brioch Bread','Brown Bread Rolls x12','Choc Orange Bread','Coconut Bread',
+      'Cream Buns 6 Pack','Fruit Bread','Gluten Free Bread','Hamburger Buns 6 Pack @120g',
+      'Milk Bread','Milk Buns x12','Multigrain Big','Rye Bread','Salty Brown Bread 1kg',
+      'Salty White Bread 1kg','Sweet Brown Bread 1kg','Sweet White Bread 1kg',
+      'Tear and Share','White Baguette','White Bread Rolls x12','Whole Meal Bread','Whole Wheat Bread'
+    ];
+    const PASTRIES_SHARED = [
+      'Almond Croissant 100g','Almond Sticks','Banana Muffin','Beef Pie','Blueberry Muffin',
+      'Cake 750g','Carrot Muffin','Cheese Sticks','Cherry Danish','Cherry Muffin','Chicken Pie',
+      'Choc Chip Cookies','Choc Croissant 100g','Choco Mint Cookies','Chocolate Muffin',
+      'Chocolate Pack','Chunky Chocochip Cookies','Cinnamon Roll 70g','Cookie x6','Danish Twist 70g',
+      'Diplomate Cake Slice','Donut Balls 6 Pack','Donut Plain 100g','Focaccia','Fruit Danish 70g',
+      'Ginger Cookies','Glazed Donut','Jam Donuts','Lemon Muffin','Madeleine 4 Pack',
+      'Mini Cookies 15 Pack','Mini Muffin 6 Pack','Mini Pies','Oatmeal Cookies x2','Opera Slice',
+      'Pain Au Choc 70g','Palmiers','Plain Croissant 100g','Plain Muffin','Raisin Muffin',
+      'Scones 2 Pack','Speculoos Cookies','Tutti Frutti','Viennesse Cookies','Chocolate Madelines'
+    ];
+    const HOT_SNACKS_SHARED = [
+      'Beef Chap','Beef Kebab','Beef Samosa','Chapatti','Chicken Chap','Chicken Fajita',
+      'Chicken Kebab','Chicken Samosa','Chicken Spring Roll','Chicken Wrap','English Sandwich',
+      'Fish Balls','Meat Balls','Mozzarella Chicken Stick','Pizza Slice','Rolex',
+      'Sausage Pair','Veg Bombo','Veg Samosa'
+    ];
+    const CAKE_SLICES_SHARED = [
+      'American Chocolate','Black Forest','Blueberry Tart','Butterscotch','Chocolate Fudge',
+      'French Mignon','Milky Coconut','Mixed Flavour','Orange Cake','Pave Chocolat',
+      'Red Velvet','Snickers Slice','Strawberry Tart','Choc & Orange','White Forest'
+    ];
+    const CAKES_1KG_SHARED = [
+      'Red Velvet 1KG','Black Forest 1KG','Chocolate Fudge 1KG','Milky Coconut 1KG',
+      'Orange 1KG','American Chocolate 1KG','Strawberry 1KG','Butterscotch 1KG',
+      'French Mignon 1KG','Fruit 1KG'
+    ];
+    const CAKES_2KG_SHARED = [
+      'Red Velvet 2KG','Black Forest 2KG','Chocolate Fudge 2KG','Cappuccino 2KG',
+      'Milky Coconut 2KG','Orange 2KG','Butterscotch 2KG','American Chocolate 2KG',
+      'Strawberry 2KG','French Mignon 2KG','Fruit 2KG','White Forest 2KG','Mixed Flavour 2KG'
+    ];
+    const GROCERIES_SHARED = [
+      'Apple Pie Granola 450g','Chai Granola Bar','Chai Spice Granola 450g','Chipotle Tabasco',
+      'Choco Almond Granola 450g','Choco Granola Bar','Crackies BBQ 120g','Ginger Cookies',
+      'Manawar Cashew Nuts Chilli 100g','Manawar Cashew Nuts Salted 100g',
+      'Manawar Cashew Nuts Unsalted 100g','Manawar Raisins 250g','Orchid Honey 450g',
+      'Orchid Honey 700g','Peanut Power Granola 450g','Pina Colada Granola 450g','Speculous Cookies'
     ];
 
-    const { error } = await db.from('kst_items').insert(items);
-    if (error) throw error;
-    log.textContent = '✓ Munyonyo display items seeded (' + items.length + ' items).';
-    showToast('Items seeded', 'success');
+    // ── BRANCH-SPECIFIC EXTRAS ────────────────────────────────
+    const LUMUMBA_PASTRIES_EXTRA = [
+      'Blueberry Pocket','Mini Croissant Assorted','Eclairs Assorted','Gallette Small',
+      'Gallette Big','Gallette Medium','Macaron','Tartlet Medium','Tart Mini',
+      'Petit Four Assorted','Oatmeal x4','Cream Donut','Chocolate Mint Cookies'
+    ];
+    const LUMUMBA_BREAD_EXTRA = [
+      'Babka Bread','Multigrain Baguette','White Oval','Sausage Roll'
+    ];
+    const LUMUMBA_SNACKS_EXTRA = [
+      'Focaccia Chicken','Focaccia Beef','Focaccia Ham & Cheese','Focaccia Bread Slice',
+      'Mini Chicken Pie','Mini Beef Pie'
+    ];
+    const LUMUMBA_CAKE_LOAF = [
+      'Vanilla Cake Loaf Slice','Marble Cake Loaf Slice','Chocolate Cake Loaf Slice',
+      'Carrot Cake Loaf Slice','Banana Cake Loaf Slice'
+    ];
+
+    const GABA_PASTRIES_EXTRA = [
+      'Valz Donut','Valz Macaroni','Coconut Cookies','Queen Cake Pack x6',
+      'Biscolto Tart','Eclair Pistachio','Glazed Donut Caramel','Glazed Donut Choco White',
+      'Glazed Donut Fragola','Glazed Donut Hazelnut','Glazed Donut Gianduia',
+      'Cake Square 6 Pack','Mini Beef Pie','Mini Chicken Pie','Assorted Pastries Mini',
+      'Oatmeal Cookies x4','Cup Cakes','Valentine Macaron Pkt','Orange Marmalade Slice'
+    ];
+    const GABA_BREAD_EXTRA = ['Salty Buns x2 Pack','Promo Baguette Bread','Whole Wheat Small'];
+    const GABA_CAKE_SLICES_EXTRA = ['Snickers Ai Choc'];
+
+    const KIIRA_PASTRIES_EXTRA = [
+      'Hot Dog Buns x6','Cake 300g','Pastry Puff 1KG','Coconut Rocher','Valz Donut',
+      'Macrons 5 Pack','Macrons Pcs','Queen Cakes 6 Pack','Cake Square 6 Pack',
+      'Pistachio Tart','Lemon Tart','Biscolto Tart','Mini Beef Pie','Mini Chicken Pie',
+      'Assorted Pastries Mini','Oatmeal Cookies x4','Chuncky Chocochip Cookies',
+      'Focaccia Chicken','Coconut Cookies','Glazed Donut Pc'
+    ];
+    const KIIRA_CAKE_SLICES_EXTRA = ['Pistachio Strawberry Slice','Snickers Ai Choc'];
+    const KIIRA_CAKES_2KG_EXTRA = ['Rainbow 2KG','Vanilla 2KG','White Forest 2KG'];
+
+    // ── BUILD ITEMS PER BRANCH ────────────────────────────────
+    function makeItems(branchId, deptId, names, category, uom='Pc') {
+      return names.map(name => ({
+        branch_id: branchId, department_id: deptId,
+        name, category, uom, active: true
+      }));
+    }
+
+    const branchConfigs = [
+      {
+        branch: lumumba, label: 'Lumumba',
+        items: [
+          ...makeItems(lumumba?.id, display.id, [...BREAD_SHARED,...LUMUMBA_BREAD_EXTRA], 'Bread'),
+          ...makeItems(lumumba?.id, display.id, [...PASTRIES_SHARED,...LUMUMBA_PASTRIES_EXTRA], 'Pastries'),
+          ...makeItems(lumumba?.id, display.id, [...HOT_SNACKS_SHARED,...LUMUMBA_SNACKS_EXTRA], 'Hot Snacks'),
+          ...makeItems(lumumba?.id, display.id, [...CAKE_SLICES_SHARED], 'Cake Slices', 'Slice'),
+          ...makeItems(lumumba?.id, display.id, LUMUMBA_CAKE_LOAF, 'Cake Loaf Slices', 'Slice'),
+          ...makeItems(lumumba?.id, display.id, CAKES_1KG_SHARED, '1KG Cakes', 'Pc'),
+          ...makeItems(lumumba?.id, display.id, CAKES_2KG_SHARED, '2KG Cakes', 'Pc'),
+          ...makeItems(lumumba?.id, display.id, GROCERIES_SHARED, 'Groceries'),
+        ]
+      },
+      {
+        branch: munyonyo, label: 'Munyonyo',
+        items: [
+          ...makeItems(munyonyo?.id, display.id, BREAD_SHARED, 'Bread'),
+          ...makeItems(munyonyo?.id, display.id, PASTRIES_SHARED, 'Pastries'),
+          ...makeItems(munyonyo?.id, display.id, HOT_SNACKS_SHARED, 'Hot Snacks'),
+          ...makeItems(munyonyo?.id, display.id, CAKE_SLICES_SHARED, 'Cake Slices', 'Slice'),
+          ...makeItems(munyonyo?.id, display.id, CAKES_1KG_SHARED, '1KG Cakes', 'Pc'),
+          ...makeItems(munyonyo?.id, display.id, CAKES_2KG_SHARED, '2KG Cakes', 'Pc'),
+          ...makeItems(munyonyo?.id, display.id, GROCERIES_SHARED, 'Groceries'),
+        ]
+      },
+      {
+        branch: kiira, label: 'Kiira Road',
+        items: [
+          ...makeItems(kiira?.id, display.id, BREAD_SHARED, 'Bread'),
+          ...makeItems(kiira?.id, display.id, [...PASTRIES_SHARED,...KIIRA_PASTRIES_EXTRA], 'Pastries'),
+          ...makeItems(kiira?.id, display.id, HOT_SNACKS_SHARED, 'Hot Snacks'),
+          ...makeItems(kiira?.id, display.id, [...CAKE_SLICES_SHARED,...KIIRA_CAKE_SLICES_EXTRA], 'Cake Slices', 'Slice'),
+          ...makeItems(kiira?.id, display.id, CAKES_1KG_SHARED, '1KG Cakes', 'Pc'),
+          ...makeItems(kiira?.id, display.id, [...CAKES_2KG_SHARED,...KIIRA_CAKES_2KG_EXTRA], '2KG Cakes', 'Pc'),
+          ...makeItems(kiira?.id, display.id, GROCERIES_SHARED, 'Groceries'),
+        ]
+      },
+      {
+        branch: gaba, label: 'Gaba Road',
+        items: [
+          ...makeItems(gaba?.id, display.id, [...BREAD_SHARED,...GABA_BREAD_EXTRA], 'Bread'),
+          ...makeItems(gaba?.id, display.id, [...PASTRIES_SHARED,...GABA_PASTRIES_EXTRA], 'Pastries'),
+          ...makeItems(gaba?.id, display.id, HOT_SNACKS_SHARED, 'Hot Snacks'),
+          ...makeItems(gaba?.id, display.id, [...CAKE_SLICES_SHARED,...GABA_CAKE_SLICES_EXTRA], 'Cake Slices', 'Slice'),
+          ...makeItems(gaba?.id, display.id, CAKES_1KG_SHARED, '1KG Cakes', 'Pc'),
+          ...makeItems(gaba?.id, display.id, CAKES_2KG_SHARED, '2KG Cakes', 'Pc'),
+          ...makeItems(gaba?.id, display.id, GROCERIES_SHARED, 'Groceries'),
+        ]
+      }
+    ];
+
+    let grand = 0;
+    for (const bc of branchConfigs) {
+      if (!bc.branch) { log.textContent += '\n⚠ ' + bc.label + ' branch not found — skipping'; continue; }
+      // Clear old display items for this branch
+      await db.from('kst_items').delete().eq('branch_id', bc.branch.id).eq('department_id', display.id);
+      const { error } = await db.from('kst_items').insert(bc.items);
+      if (error) throw new Error(bc.label + ': ' + error.message);
+      grand += bc.items.length;
+      log.textContent += '\n✓ ' + bc.label + ' — ' + bc.items.length + ' items';
+    }
+    log.textContent += '\n\n✅ Done! ' + grand + ' items across all branches.';
+    showToast('All branches seeded ✓', 'success');
   } catch(e) {
-    log.textContent = 'Error: ' + e.message;
+    log.textContent += '\n\nERROR: ' + e.message;
+    showToast('Seed failed', 'error');
   }
 }
-
-// ═══════════════════════════════════════
-// UTILITIES
-// ═══════════════════════════════════════
-function formatDate(str) {
-  if (!str) return '';
-  const d = new Date(str + 'T12:00:00');
-  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function showToast(msg, type = '') {
-  const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.className = 'toast' + (type ? ' ' + type : '');
-  t.classList.add('show');
-  setTimeout(() => t.classList.remove('show'), 2800);
-}
-
-// ═══════════════════════════════════════
-// BOOT
-// ═══════════════════════════════════════
-init();
-</script>
-</body>
-</html>

@@ -1328,11 +1328,29 @@ async function seedDisplayItems() {
   log.textContent = 'Seeding display items...';
 
   try {
-    const { data: branchData } = await db.from('branches').select('id,name');
-    const { data: deptData } = await db.from('kst_departments').select('id,name').eq('type','display');
-    const munyonyo = branchData?.find(b => b.name === 'Munyonyo');
-    const display = deptData?.[0];
-    if (!munyonyo || !display) { log.textContent = 'Run seed first'; return; }
+    // Ensure departments exist first
+    await db.from('kst_departments').upsert([
+      { name: 'Display', type: 'display' },
+      { name: 'Bar', type: 'bar' },
+      { name: 'Gelato', type: 'gelato' },
+      { name: 'Dry Goods & Packaging', type: 'dry_goods' },
+      { name: 'Dispatch / Production', type: 'dispatch' }
+    ], { onConflict: 'name' });
+
+    const { data: branchData, error: bErr } = await db.from('branches').select('id,name');
+    const { data: deptData, error: dErr } = await db.from('kst_departments').select('id,name');
+    
+    if (bErr) throw new Error('Branches error: ' + bErr.message);
+    if (dErr) throw new Error('Depts error: ' + dErr.message);
+
+    log.textContent = 'Branches found: ' + (branchData?.map(b=>b.name).join(', ') || 'NONE');
+    
+    const munyonyo = branchData?.find(b => b.name?.toLowerCase().includes('munyonyo'));
+    const display = deptData?.find(d => d.name === 'Display');
+    
+    if (!munyonyo) { log.textContent += '\nERROR: No Munyonyo branch. Found: ' + branchData?.map(b=>b.name).join(', '); return; }
+    if (!display) { log.textContent += '\nERROR: Display dept missing.'; return; }
+    log.textContent += '\nUsing: ' + munyonyo.name + ' + ' + display.name;
 
     const items = [
       // Bread

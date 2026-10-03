@@ -1265,13 +1265,18 @@ async function loadHistory() {
       return;
     }
 
-    // Deduplicate to one row per date/branch/dept/status
+    // Deduplicate to one row per date/branch/dept
     const seen = new Set();
     const unique = [];
     data.forEach(r => {
       const key = `${r.entry_date}-${r.branch_id}-${r.department_id}`;
       if (!seen.has(key)) { seen.add(key); unique.push(r); }
     });
+
+    if (unique.length === 0) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>`;
+      return;
+    }
 
     const bMap = Object.fromEntries(branches.map(b => [b.id, b.name]));
     const dMap = Object.fromEntries(departments.map(d => [d.id, d.name]));

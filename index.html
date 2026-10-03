@@ -399,6 +399,7 @@
   .chip-submitted { background: #EAF7EE; color: var(--green); }
   .chip-draft { background: #FEF9E7; color: var(--orange); }
   .chip-reconciled { background: #EBF5FB; color: #2980B9; }
+  .chip-final { background: #2C1A0E; color: #FAF6F0; }
 
   /* ── REPORT TABS ── */
   .rep-tab {
@@ -644,9 +645,12 @@
 
   <div id="itemsList"></div>
 
-  <div style="margin-top:20px;display:grid;gap:10px">
-    <button class="btn btn-success" onclick="submitEntry()">✓ Submit Entry</button>
-    <button class="btn btn-outline" onclick="saveDraft()">Save Draft</button>
+  <div style="margin-top:20px;display:grid;gap:10px" id="entryActions">
+    <button class="btn btn-success" id="btnSubmitEntry" onclick="submitEntry()">✓ Submit to Manager</button>
+    <button class="btn btn-outline" id="btnSaveDraft" onclick="saveDraft()">💾 Save Draft</button>
+    <div id="entryLockMsg" style="display:none;background:#FDEDEC;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;text-align:center">
+      🔒 This entry is locked — only the date it was created can be edited
+    </div>
   </div>
 </div>
 
@@ -690,8 +694,11 @@
   <div id="reconItemsList"></div>
 
   <div style="margin-top:20px;display:grid;gap:10px">
-    <button class="btn btn-success" onclick="submitRecon()">✓ Complete Reconciliation</button>
-    <button class="btn btn-outline" onclick="saveReconDraft()">Save Draft</button>
+    <button class="btn btn-success" onclick="submitRecon('final')">✓ Submit to Director (Final)</button>
+    <button class="btn btn-outline" onclick="submitRecon('reconciled')">💾 Save Reconciliation Draft</button>
+    <div id="reconLockMsg" style="display:none;background:#FDEDEC;color:var(--red);padding:10px 14px;border-radius:8px;font-size:13px;text-align:center">
+      🔒 This reconciliation has been finalised
+    </div>
   </div>
 </div>
 
@@ -708,7 +715,7 @@
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
       <div>
         <label>Branch</label>
-        <select id="repBranch"><option value="">All Branches</option></select>
+        <select id="repBranch"></select>
       </div>
       <div>
         <label>Department</label>
@@ -1528,11 +1535,24 @@ async function saveEntry(status) {
 }
 
 async function saveDraft() {
+  // Day lock — supervisors can only edit today's entries
+  const today = new Date().toISOString().split('T')[0];
+  if (currentUser.role === 'supervisor' && currentEntry.date !== today) {
+    showToast('Cannot edit past entries', 'error');
+    return;
+  }
   const ok = await saveEntry('draft');
-  showToast(ok ? 'Draft saved' : 'Save failed', ok ? 'success' : 'error');
+  showToast(ok ? '✓ Draft saved — you can continue later' : 'Save failed', ok ? 'success' : 'error');
 }
 
 async function submitEntry() {
+  // Day lock check — supervisors can only submit on the same day
+  const today = new Date().toISOString().split('T')[0];
+  if (currentUser.role === 'supervisor' && currentEntry.date !== today) {
+    showToast('You can only submit entries for today', 'error');
+    return;
+  }
+
   const total = currentEntry.items?.length || 0;
   const filled = Object.values(currentEntry.itemData)
     .filter(d => d.physical_count !== null && d.physical_count !== undefined).length;
@@ -1544,7 +1564,7 @@ async function submitEntry() {
 
   const ok = await saveEntry('submitted');
   if (ok) {
-    showToast('Entry submitted ✓', 'success');
+    showToast('Entry submitted to manager ✓', 'success');
     setTimeout(() => showScreen('dashboardScreen'), 1200);
   } else {
     showToast('Submit failed — try again', 'error');
@@ -1619,14 +1639,18 @@ async function loadHistory() {
       const row = document.createElement('div');
       row.className = 'history-row';
       row.style.cursor = 'pointer';
-      const chipClass = r.status === 'submitted' ? 'chip-submitted' :
+      const chipClass = r.status === 'final' ? 'chip-final' :
+        r.status === 'submitted' ? 'chip-submitted' :
         r.status === 'reconciled' ? 'chip-reconciled' : 'chip-draft';
+      const statusLabel = r.status === 'final' ? '✓ Final' :
+        r.status === 'reconciled' ? 'Reconciled' :
+        r.status === 'submitted' ? 'Submitted' : 'Draft';
       row.innerHTML = `
         <div>
           <div class="history-date">${formatDate(r.entry_date)}</div>
           <div class="history-meta">${bMap[r.branch_id]||'?'} · ${dMap[r.department_id]||'?'}</div>
         </div>
-        <span class="status-chip ${chipClass}">${r.status}</span>
+        <span class="status-chip ${chipClass}">${statusLabel}</span>
       `;
       row.onclick = () => openReconScreen(r.entry_date, r.branch_id, r.department_id);
       card.appendChild(row);
@@ -2044,6 +2068,7 @@ async function openReconScreen(date, branchId, deptId) {
 
   document.getElementById('reconItemsList').innerHTML =
     '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading entries...</div>';
+  document.getElementById('reconLockMsg').style.display = 'none';
 
   try {
     const { data, error } = await db.from('kst_stock_entries')
@@ -2062,6 +2087,16 @@ async function openReconScreen(date, branchId, deptId) {
 
     reconEntries = data;
     buildReconTable(data);
+    // Lock if final
+    const isFinal = data.every(e => e.status === 'final');
+    const isReconciled = data.every(e => ['reconciled','final'].includes(e.status));
+    if (isFinal) {
+      document.getElementById('reconLockMsg').style.display = 'block';
+      document.querySelectorAll('#reconScreen input').forEach(i => i.disabled = true);
+      document.querySelectorAll('#reconScreen button').forEach(b => {
+        if (!b.classList.contains('btn-outline')) b.disabled = true;
+      });
+    }
   } catch(e) {
     document.getElementById('reconItemsList').innerHTML =
       `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error: ${e.message}</div></div>`;
@@ -2173,26 +2208,37 @@ function updateReconSummary() {
   }
 }
 
-async function submitRecon() {
+async function submitRecon(status) {
+  // Check if already final
+  const alreadyFinal = reconEntries.some(e => e.status === 'final');
+  if (alreadyFinal && !['director','cost_control'].includes(currentUser.role)) {
+    showToast('This reconciliation has been finalised', 'error');
+    return;
+  }
+
+  const newStatus = status || 'reconciled';
+  const label = newStatus === 'final' ? 'Submitted to director ✓' : 'Reconciliation saved ✓';
+
   try {
     const updates = reconEntries.map(e => {
       const sales = parseFloat(document.getElementById('sales_' + e.id)?.value) || 0;
       const note = document.getElementById('note_' + e.id)?.value || null;
       return db.from('kst_stock_entries')
-        .update({ sales_per_bill: sales, variance_notes: note, status: 'reconciled',
-                  reconciled_by: currentUser.id, reconciled_at: new Date().toISOString() })
+        .update({
+          sales_per_bill: sales,
+          variance_notes: note,
+          status: newStatus,
+          reconciled_by: currentUser.id,
+          reconciled_at: new Date().toISOString()
+        })
         .eq('id', e.id);
     });
     await Promise.all(updates);
-    showToast('Reconciliation complete ✓', 'success');
+    showToast(label, 'success');
     setTimeout(() => { openHistory(); }, 1200);
   } catch(err) {
     showToast('Error: ' + err.message, 'error');
   }
-}
-
-async function saveReconDraft() {
-  showToast('Draft saved');
 }
 
 // ═══════════════════════════════════════
@@ -2351,15 +2397,39 @@ function renderSummary(data) {
     }
   });
 
+  // Group by branch+dept
+  const byBranchDept = {};
+  data.forEach(r => {
+    const key = r.branch_id + '|' + r.department_id;
+    if (!byBranchDept[key]) byBranchDept[key] = {};
+    const cat = r.kst_items?.category || 'Other';
+    if (!byBranchDept[key][cat]) byBranchDept[key][cat] = [];
+    const existing = byBranchDept[key][cat].find(i => i.item_id === r.item_id);
+    if (existing) {
+      existing.received += r.received||0; existing.added += r.added_stock||0;
+      existing.sales += r.sales_per_bill||0; existing.returns += r.returns||0;
+      existing.spoilage += r.spoilage||0; existing.variance += r.variance||0;
+    } else {
+      byBranchDept[key][cat].push({
+        item_id: r.item_id, name: r.kst_items?.name||'?', uom: r.kst_items?.uom||'',
+        received: r.received||0, added: r.added_stock||0, sales: r.sales_per_bill||0,
+        returns: r.returns||0, spoilage: r.spoilage||0, variance: r.variance||0
+      });
+    }
+  });
+
   let html = '';
-  Object.entries(byBranch).forEach(([bid, cats], idx) => {
-    const secId = 'rep_branch_' + bid;
-    const isFirst = idx === 0;
+  let sectionIdx = 0;
+  Object.entries(byBranchDept).forEach(([key, cats]) => {
+    const [bid, did] = key.split('|');
+    const secId = 'rep_sec_' + sectionIdx;
+    const isFirst = sectionIdx === 0;
+    sectionIdx++;
     html += `<div class="report-section">
       <div class="report-section-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"
         onclick="toggleRepSection('${secId}')">
-        <span>🏪 ${bName(bid)}</span>
-        <span id="${secId}_icon" style="font-size:14px;transition:transform 0.2s;transform:${isFirst?'rotate(90deg)':'rotate(0deg)'}"">▶</span>
+        <span>🏪 ${bName(bid)} — ${dName(parseInt(did))}</span>
+        <span id="${secId}_icon" style="font-size:14px;transition:transform 0.2s;transform:${isFirst?'rotate(90deg)':'rotate(0deg)'}">▶</span>
       </div>
       <div id="${secId}" style="display:${isFirst?'block':'none'}">
       <div style="overflow-x:auto">
@@ -2375,7 +2445,7 @@ function renderSummary(data) {
     Object.entries(cats).forEach(([cat, items]) => {
       html += `<tr class="cat-row"><td colspan="8">${cat}</td></tr>`;
       items.forEach(i => {
-        const varClass = Math.abs(i.variance) > 0 ? 'rep-variance-bad' : 'rep-variance-ok';
+        const varClass = Math.abs(i.variance) > 0.01 ? 'rep-variance-bad' : 'rep-variance-ok';
         html += `<tr>
           <td>${i.name}</td><td>${i.uom}</td>
           <td>${fmt(i.received)}</td><td>${fmt(i.added)}</td>

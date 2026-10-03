@@ -215,87 +215,116 @@
   .entry-meta-item { font-size: 12px; }
   .entry-meta-item strong { display: block; font-size: 15px; color: var(--gold-light); }
 
-  /* ── ITEM ENTRY TABLE ── */
+  /* ── SPREADSHEET ENTRY ── */
   .category-header {
     background: var(--brown-mid);
     color: var(--cream);
-    padding: 8px 14px;
+    padding: 10px 14px;
     border-radius: 6px;
     font-size: 12px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
-    margin: 16px 0 8px;
-  }
-
-  .item-row {
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    margin-bottom: 8px;
-    overflow: hidden;
-  }
-  .item-row-header {
-    padding: 10px 12px;
+    margin: 16px 0 0;
+    cursor: pointer;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    cursor: pointer;
+    user-select: none;
   }
-  .item-name { font-size: 14px; font-weight: 600; color: var(--text); }
-  .item-uom { font-size: 11px; color: var(--text-light); }
-  .item-status-dot {
-    width: 8px; height: 8px;
-    border-radius: 50%;
-    background: var(--border);
-    flex-shrink: 0;
-  }
-  .item-status-dot.has-data { background: var(--green); }
-  .item-status-dot.has-variance { background: var(--red); }
+  .category-header .cat-toggle { font-size: 16px; transition: transform 0.2s; }
+  .category-header.open .cat-toggle { transform: rotate(90deg); }
 
-  .item-fields {
+  .category-table-wrap {
     display: none;
-    padding: 12px;
-    background: var(--cream);
-    border-top: 1px solid var(--border);
-    gap: 10px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+    margin-bottom: 4px;
   }
-  .item-fields.open { display: grid; }
-  .item-fields-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 8px;
-  }
-  .field-group { }
-  .field-group label { margin-bottom: 3px; }
-  .field-group input, .field-group select {
-    margin-bottom: 0;
-    padding: 8px 10px;
-    font-size: 14px;
-  }
-  .field-opening {
-    background: #F0EBE3;
-    border-color: var(--brown-mid);
-    color: var(--brown-mid);
-    font-weight: 600;
-  }
-  .variance-display {
-    padding: 8px 10px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 600;
-    text-align: center;
-  }
-  .variance-ok { background: #EAF7EE; color: var(--green); }
-  .variance-bad { background: #FDEDEC; color: var(--red); }
-  .variance-pending { background: #F5F0E8; color: var(--text-light); }
+  .category-table-wrap.open { display: block; }
 
-  .returns-row {
-    grid-column: 1 / -1;
-    display: grid;
-    grid-template-columns: 1fr 2fr;
-    gap: 8px;
+  .entry-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    min-width: 600px;
   }
+  .entry-table th {
+    background: var(--cream);
+    padding: 7px 8px;
+    text-align: left;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--text-light);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+  }
+  .entry-table td {
+    padding: 4px 4px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .entry-table tr:last-child td { border-bottom: none; }
+  .entry-table tr:hover td { background: #FBF8F4; }
+
+  .td-name {
+    font-weight: 600;
+    color: var(--text);
+    padding: 6px 10px;
+    white-space: nowrap;
+    min-width: 140px;
+    font-size: 12px;
+  }
+  .td-uom {
+    color: var(--text-light);
+    font-size: 11px;
+    padding: 0 6px;
+    white-space: nowrap;
+  }
+  .td-input input {
+    width: 64px;
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 6px;
+    font-size: 13px;
+    text-align: center;
+    background: white;
+    margin: 0;
+  }
+  .td-input input:focus { border-color: var(--gold); outline: none; }
+  .td-input input.opening-field {
+    background: #F0EBE3;
+    color: var(--brown-mid);
+    font-weight: 700;
+    border-color: transparent;
+  }
+  .td-reason select {
+    border: 1.5px solid var(--border);
+    border-radius: 5px;
+    padding: 5px 4px;
+    font-size: 11px;
+    background: white;
+    margin: 0;
+    width: 100px;
+  }
+  .td-variance {
+    font-weight: 700;
+    font-size: 12px;
+    padding: 0 8px;
+    white-space: nowrap;
+  }
+  .var-ok { color: var(--green); }
+  .var-bad { color: var(--red); }
+  .var-none { color: var(--text-light); }
+
+  .variance-display { display: none; }
+  .item-status-dot { display: none; }
 
   /* ── PROGRESS BAR ── */
   .progress-bar {
@@ -958,7 +987,6 @@ function getPrevDate(dateStr) {
 // BUILD ITEM ENTRY UI
 // ═══════════════════════════════════════
 function buildItemEntryScreen(items) {
-  // Entry meta bar
   document.getElementById('entryMeta').innerHTML = `
     <div class="entry-meta-item"><strong>${currentEntry.branchName}</strong>Branch</div>
     <div class="entry-meta-item"><strong>${currentEntry.departmentName}</strong>Dept</div>
@@ -968,6 +996,9 @@ function buildItemEntryScreen(items) {
 
   document.getElementById('itemsTotal').textContent = items.length;
 
+  const isDept = departments.find(d => d.id === currentEntry.departmentId);
+  const isBar = isDept?.type === 'bar';
+
   // Group by category
   const byCategory = {};
   items.forEach(item => {
@@ -975,159 +1006,111 @@ function buildItemEntryScreen(items) {
     byCategory[item.category].push(item);
   });
 
-  const isDept = departments.find(d => d.id === currentEntry.departmentId);
-  const isBar = isDept?.type === 'bar';
-
   const list = document.getElementById('itemsList');
   list.innerHTML = '';
 
-  Object.entries(byCategory).forEach(([cat, catItems]) => {
+  Object.entries(byCategory).forEach(([cat, catItems], idx) => {
+    // Category header (clickable)
     const header = document.createElement('div');
-    header.className = 'category-header';
-    header.textContent = cat;
+    header.className = 'category-header' + (idx === 0 ? ' open' : '');
+    header.innerHTML = `<span>${cat} <span style="font-weight:400;opacity:0.7">(${catItems.length})</span></span><span class="cat-toggle">▶</span>`;
+    header.onclick = () => toggleCategory(cat);
     list.appendChild(header);
 
+    // Table wrapper
+    const wrap = document.createElement('div');
+    wrap.className = 'category-table-wrap' + (idx === 0 ? ' open' : '');
+    wrap.id = 'catwrap_' + cat.replace(/\s+/g,'_');
+
+    // Build table
+    const extraCols = isBar ? `<th>Spoilage</th><th>Internal</th>` : '';
+    let html = `<table class="entry-table">
+      <thead><tr>
+        <th>Item</th><th>UOM</th>
+        <th>Opening</th><th>Received</th><th>Added</th>
+        <th>Returns</th><th>Reason</th>
+        ${extraCols}
+        <th>Phys Count</th><th>Variance</th>
+      </tr></thead><tbody>`;
+
     catItems.forEach(item => {
-      list.appendChild(buildItemRow(item, isBar));
+      const saved = currentEntry.itemData[item.id] || {};
+      const opening = currentEntry.prevClosing[item.id] ?? 0;
+      const extraInputs = isBar ? `
+        <td class="td-input"><input type="number" id="spoilage_${item.id}" value="${saved.spoilage||''}" placeholder="0" oninput="updateCalc('${item.id}')"></td>
+        <td class="td-input"><input type="number" id="internal_${item.id}" value="${saved.internal_use||''}" placeholder="0" oninput="updateCalc('${item.id}')"></td>` : '';
+
+      html += `<tr id="row_${item.id}" data-opening="${opening}">
+        <td class="td-name">${item.name}</td>
+        <td class="td-uom">${item.uom}</td>
+        <td class="td-input"><input class="opening-field" type="number" value="${opening}" readonly tabindex="-1"></td>
+        <td class="td-input"><input type="number" id="received_${item.id}" value="${saved.received||''}" placeholder="0" oninput="updateCalc('${item.id}')"></td>
+        <td class="td-input"><input type="number" id="added_${item.id}" value="${saved.added_stock||''}" placeholder="0" oninput="updateCalc('${item.id}')"></td>
+        <td class="td-input"><input type="number" id="returns_${item.id}" value="${saved.returns||''}" placeholder="0" oninput="updateCalc('${item.id}')"></td>
+        <td class="td-reason"><select id="reason_${item.id}">
+          <option value="">—</option>
+          <option value="old_stock" ${saved.return_reason_id==='old_stock'?'selected':''}>Old Stock</option>
+          <option value="damage" ${saved.return_reason_id==='damage'?'selected':''}>Damage</option>
+          <option value="bar_use" ${saved.return_reason_id==='bar_use'?'selected':''}>Bar Use</option>
+          <option value="sampling" ${saved.return_reason_id==='sampling'?'selected':''}>Sampling</option>
+          <option value="wastage" ${saved.return_reason_id==='wastage'?'selected':''}>Wastage</option>
+        </select></td>
+        ${extraInputs}
+        <td class="td-input"><input type="number" id="count_${item.id}" value="${saved.physical_count!==undefined&&saved.physical_count!==null?saved.physical_count:''}" placeholder="—" oninput="updateCalc('${item.id}')"></td>
+        <td class="td-variance var-none" id="variance_${item.id}">—</td>
+      </tr>`;
     });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    list.appendChild(wrap);
   });
 
   updateProgress();
 }
 
-function buildItemRow(item, isBar) {
-  const saved = currentEntry.itemData[item.id] || {};
-  const opening = currentEntry.prevClosing[item.id] ?? 0;
-
-  const div = document.createElement('div');
-  div.className = 'item-row';
-  div.id = 'row_' + item.id;
-
-  const hasData = saved.physical_count !== undefined && saved.physical_count !== null;
-  const variance = hasData
-    ? (saved.physical_count - (opening + (saved.received||0) + (saved.added_stock||0) - (saved.returns||0) - (saved.spoilage||0) - (saved.internal_use||0)))
-    : null;
-  const hasVariance = variance !== null && variance !== 0;
-
-  div.innerHTML = `
-    <div class="item-row-header" onclick="toggleItem('${item.id}')">
-      <div>
-        <div class="item-name">${item.name}</div>
-        <div class="item-uom">${item.uom}${item.item_code ? ' · ' + item.item_code : ''}</div>
-      </div>
-      <div class="item-status-dot ${hasVariance ? 'has-variance' : hasData ? 'has-data' : ''}" id="dot_${item.id}"></div>
-    </div>
-    <div class="item-fields" id="fields_${item.id}">
-      <div class="item-fields-grid">
-        <div class="field-group">
-          <label>Opening Stock</label>
-          <input class="field-opening" type="number" value="${opening}" readonly>
-        </div>
-        <div class="field-group">
-          <label>Received</label>
-          <input type="number" id="received_${item.id}" value="${saved.received||''}" placeholder="0" min="0"
-            onchange="updateCalc('${item.id}')">
-        </div>
-        <div class="field-group">
-          <label>Added Stock</label>
-          <input type="number" id="added_${item.id}" value="${saved.added_stock||''}" placeholder="0" min="0"
-            onchange="updateCalc('${item.id}')">
-        </div>
-        <div class="field-group">
-          <label>Physical Count</label>
-          <input type="number" id="count_${item.id}" value="${saved.physical_count!==undefined?saved.physical_count:''}" placeholder="Count now"
-            onchange="updateCalc('${item.id}')">
-        </div>
-        <div class="returns-row">
-          <div class="field-group">
-            <label>Returns / Removed</label>
-            <input type="number" id="returns_${item.id}" value="${saved.returns||''}" placeholder="0" min="0"
-              onchange="updateCalc('${item.id}')">
-          </div>
-          <div class="field-group">
-            <label>Reason</label>
-            <select id="reason_${item.id}">
-              <option value="">Select reason...</option>
-              <option value="old_stock" ${saved.return_reason_id==='old_stock'?'selected':''}>Old Stock</option>
-              <option value="damage" ${saved.return_reason_id==='damage'?'selected':''}>Damage</option>
-              <option value="bar_use" ${saved.return_reason_id==='bar_use'?'selected':''}>Bar Use</option>
-              <option value="sampling" ${saved.return_reason_id==='sampling'?'selected':''}>Sampling</option>
-              <option value="wastage" ${saved.return_reason_id==='wastage'?'selected':''}>Wastage</option>
-            </select>
-          </div>
-        </div>
-        ${isBar ? `
-        <div class="field-group">
-          <label>Spoilage</label>
-          <input type="number" id="spoilage_${item.id}" value="${saved.spoilage||''}" placeholder="0" min="0"
-            onchange="updateCalc('${item.id}')">
-        </div>
-        <div class="field-group">
-          <label>Internal Use (BAN/Bar)</label>
-          <input type="number" id="internal_${item.id}" value="${saved.internal_use||''}" placeholder="0" min="0"
-            onchange="updateCalc('${item.id}')">
-        </div>
-        ` : ''}
-      </div>
-      <div class="variance-display variance-pending" id="variance_${item.id}" style="margin-top:8px">
-        ${variance !== null
-          ? (variance === 0 ? '✓ No variance' : `⚠ Variance: ${variance > 0 ? '+' : ''}${variance.toFixed(2)}`)
-          : 'Enter physical count to see variance'}
-      </div>
-    </div>
-  `;
-
-  // Store opening for calculations
-  div.dataset.opening = opening;
-
-  return div;
+function toggleCategory(cat) {
+  const id = 'catwrap_' + cat.replace(/\s+/g,'_');
+  const wrap = document.getElementById(id);
+  const headers = document.querySelectorAll('.category-header');
+  headers.forEach(h => {
+    if (h.textContent.includes(cat)) h.classList.toggle('open');
+  });
+  wrap?.classList.toggle('open');
 }
 
-function toggleItem(itemId) {
-  const fields = document.getElementById('fields_' + itemId);
-  const isOpen = fields.classList.contains('open');
-  // Close all others
-  document.querySelectorAll('.item-fields.open').forEach(f => f.classList.remove('open'));
-  if (!isOpen) fields.classList.add('open');
-}
+function buildItemRow(item, isBar) { return document.createElement('div'); } // legacy stub
+function toggleItem(itemId) {} // legacy stub
 
 function updateCalc(itemId) {
   const row = document.getElementById('row_' + itemId);
-  const opening = parseFloat(row.dataset.opening) || 0;
+  const opening = parseFloat(row?.dataset.opening) || 0;
   const received = parseFloat(document.getElementById('received_' + itemId)?.value) || 0;
   const added = parseFloat(document.getElementById('added_' + itemId)?.value) || 0;
   const returns_ = parseFloat(document.getElementById('returns_' + itemId)?.value) || 0;
   const spoilage = parseFloat(document.getElementById('spoilage_' + itemId)?.value) || 0;
   const internal = parseFloat(document.getElementById('internal_' + itemId)?.value) || 0;
   const countEl = document.getElementById('count_' + itemId);
-  const count = countEl.value !== '' ? parseFloat(countEl.value) : null;
+  const count = countEl && countEl.value !== '' ? parseFloat(countEl.value) : null;
 
   const closing = opening + received + added - returns_ - spoilage - internal;
   const variance = count !== null ? count - closing : null;
 
-  // Update variance display
+  // Update variance cell in table
   const varEl = document.getElementById('variance_' + itemId);
-  if (variance !== null) {
-    if (variance === 0) {
-      varEl.className = 'variance-display variance-ok';
-      varEl.textContent = '✓ No variance';
+  if (varEl) {
+    if (variance !== null) {
+      if (variance === 0) {
+        varEl.className = 'td-variance var-ok';
+        varEl.textContent = '✓ 0';
+      } else {
+        varEl.className = 'td-variance var-bad';
+        varEl.textContent = (variance > 0 ? '+' : '') + variance.toFixed(1);
+      }
     } else {
-      varEl.className = 'variance-display variance-bad';
-      varEl.textContent = `⚠ Variance: ${variance > 0 ? '+' : ''}${variance.toFixed(2)}`;
+      varEl.className = 'td-variance var-none';
+      varEl.textContent = '—';
     }
-  } else {
-    varEl.className = 'variance-display variance-pending';
-    varEl.textContent = 'Enter physical count to see variance';
-  }
-
-  // Update dot
-  const dot = document.getElementById('dot_' + itemId);
-  if (variance !== null && variance !== 0) {
-    dot.className = 'item-status-dot has-variance';
-  } else if (count !== null) {
-    dot.className = 'item-status-dot has-data';
-  } else {
-    dot.className = 'item-status-dot';
   }
 
   // Save to currentEntry

@@ -484,6 +484,39 @@
   .empty-text { font-size: 14px; }
 
   /* ── MOBILE ── */
+  /* ── BOTTOM NAV ── */
+  .bottom-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--brown);
+    display: none;
+    grid-template-columns: repeat(5, 1fr);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    z-index: 200;
+    border-top: 1px solid var(--brown-mid);
+  }
+  .bottom-nav.visible { display: grid; }
+  .nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px 4px 8px;
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.15s;
+    gap: 3px;
+  }
+  .nav-item.active { opacity: 1; }
+  .nav-item:active { opacity: 0.8; }
+  .nav-icon { font-size: 20px; line-height: 1; }
+  .nav-label { font-size: 9px; color: var(--cream); font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+  
+  /* Pad screens so content doesn't hide behind nav */
+  .screen { padding-bottom: calc(70px + env(safe-area-inset-bottom, 0px)); }
+
   @media (max-width: 400px) {
     .action-grid { grid-template-columns: 1fr; }
     .action-card.full-width { grid-column: 1; }
@@ -807,11 +840,15 @@ function showScreen(id) {
   document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
   const header = document.getElementById('appHeader');
+  const nav = document.getElementById('bottomNav');
+
   if (id === 'loginScreen') {
     header.style.display = 'none';
+    nav.classList.remove('visible');
     navStack = [];
   } else {
     header.style.display = 'flex';
+    nav.classList.add('visible');
     const backBtn = document.getElementById('headerUser');
     if (id === 'dashboardScreen') {
       backBtn.textContent = currentUser?.name || 'Menu';
@@ -821,8 +858,27 @@ function showScreen(id) {
       backBtn.textContent = '⬅ Back';
       backBtn.onclick = goBack;
     }
+    // Update active nav item
+    const navMap = {
+      dashboardScreen: 'home',
+      startEntryScreen: 'entry', itemEntryScreen: 'entry',
+      historyScreen: 'history', reconScreen: 'history',
+      reportsScreen: 'reports',
+      setupScreen: 'more'
+    };
+    document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+    const activeNav = navMap[id];
+    if (activeNav) document.getElementById('nav_' + activeNav)?.classList.add('active');
   }
   window.scrollTo(0, 0);
+}
+
+function navTo(dest) {
+  if (dest === 'home') { navStack = []; showScreen('dashboardScreen'); }
+  else if (dest === 'entry') openNewEntry();
+  else if (dest === 'history') openHistory();
+  else if (dest === 'reports') openReports();
+  else if (dest === 'more') showScreen('setupScreen');
 }
 
 function goBack() {
@@ -2299,5 +2355,29 @@ function downloadPDF() {
 // ═══════════════════════════════════════
 init();
 </script>
+<!-- BOTTOM NAV -->
+<div class="bottom-nav" id="bottomNav">
+  <div class="nav-item" id="nav_home" onclick="navTo('home')">
+    <div class="nav-icon">🏠</div>
+    <div class="nav-label">Home</div>
+  </div>
+  <div class="nav-item" id="nav_entry" onclick="navTo('entry')">
+    <div class="nav-icon">📋</div>
+    <div class="nav-label">Entry</div>
+  </div>
+  <div class="nav-item" id="nav_history" onclick="navTo('history')">
+    <div class="nav-icon">📅</div>
+    <div class="nav-label">History</div>
+  </div>
+  <div class="nav-item" id="nav_reports" onclick="navTo('reports')">
+    <div class="nav-icon">📊</div>
+    <div class="nav-label">Reports</div>
+  </div>
+  <div class="nav-item" id="nav_more" onclick="navTo('more')">
+    <div class="nav-icon">⚙️</div>
+    <div class="nav-label">More</div>
+  </div>
+</div>
+
 </body>
 </html>

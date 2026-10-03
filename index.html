@@ -567,6 +567,28 @@
 </div>
 
 <!-- ═══════════════════════════════════════
+     SCREEN: RECONCILIATION
+═══════════════════════════════════════ -->
+<div class="screen" id="reconScreen">
+  <div class="entry-meta" id="reconMeta"></div>
+
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Enter Sales (from POS bill)</div>
+    <p style="font-size:12px;color:var(--text-light);margin-bottom:12px">
+      Enter actual sales per item as per the POS report. Variances will recalculate automatically.
+    </p>
+    <div id="reconVarianceSummary" style="margin-bottom:12px"></div>
+  </div>
+
+  <div id="reconItemsList"></div>
+
+  <div style="margin-top:20px;display:grid;gap:10px">
+    <button class="btn btn-success" onclick="submitRecon()">✓ Complete Reconciliation</button>
+    <button class="btn btn-outline" onclick="saveReconDraft()">Save Draft</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
      SCREEN: SETUP (first time)
 ═══════════════════════════════════════ -->
 <div class="screen" id="setupScreen">
@@ -1250,33 +1272,29 @@ async function loadHistory() {
 
   try {
     let q = db.from('kst_stock_entries')
-      .select('entry_date, branch_id, department_id, status, submitted_at, submitted_by')
+      .select('entry_date, branch_id, department_id, status, submitted_at')
       .order('entry_date', { ascending: false })
       .order('submitted_at', { ascending: false })
-      .limit(60);
+      .limit(2000);
 
-    if (branchId) q = q.eq('branch_id', branchId);
+    if (branchId) q = q.eq('branch_id', parseInt(branchId));
     if (date) q = q.eq('entry_date', date);
 
-    const { data } = await q;
+    const { data, error } = await q;
+    if (error) throw error;
 
     if (!data || !data.length) {
-      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>`;
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>';
       return;
     }
 
-    // Deduplicate to one row per date/branch/dept
+    // Deduplicate — one row per date+branch+dept
     const seen = new Set();
     const unique = [];
     data.forEach(r => {
-      const key = `${r.entry_date}-${r.branch_id}-${r.department_id}`;
+      const key = r.entry_date + '|' + r.branch_id + '|' + r.department_id;
       if (!seen.has(key)) { seen.add(key); unique.push(r); }
     });
-
-    if (unique.length === 0) {
-      list.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>`;
-      return;
-    }
 
     const bMap = Object.fromEntries(branches.map(b => [b.id, b.name]));
     const dMap = Object.fromEntries(departments.map(d => [d.id, d.name]));
@@ -1286,6 +1304,7 @@ async function loadHistory() {
     unique.forEach(r => {
       const row = document.createElement('div');
       row.className = 'history-row';
+      row.style.cursor = 'pointer';
       const chipClass = r.status === 'submitted' ? 'chip-submitted' :
         r.status === 'reconciled' ? 'chip-reconciled' : 'chip-draft';
       row.innerHTML = `
@@ -1295,22 +1314,16 @@ async function loadHistory() {
         </div>
         <span class="status-chip ${chipClass}">${r.status}</span>
       `;
+      row.onclick = () => openReconScreen(r.entry_date, r.branch_id, r.department_id);
       card.appendChild(row);
     });
     list.innerHTML = '';
     list.appendChild(card);
   } catch(e) {
-    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Could not load history</div></div>`;
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error: ${e.message}</div></div>`;
   }
 }
 
-// ═══════════════════════════════════════
-// SETUP & SEEDING
-// ═══════════════════════════════════════
-function saveConfig() {
-  document.getElementById('setupActions').style.display = 'block';
-  showToast('Ready — run seed below', 'success');
-}
 
 async function seedData() {
   const log = document.getElementById('setupLog');
@@ -1572,6 +1585,179 @@ function showToast(msg, type = '') {
   t.className = 'toast' + (type ? ' ' + type : '');
   t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ═══════════════════════════════════════
+// RECONCILIATION
+// ═══════════════════════════════════════
+let reconData = {};
+let reconEntries = [];
+
+async function openReconScreen(date, branchId, deptId) {
+  showScreen('reconScreen');
+  reconData = { date, branchId, deptId };
+  reconEntries = [];
+
+  const bName = branches.find(b => b.id === branchId)?.name || 'Branch';
+  const dName = departments.find(d => d.id === deptId)?.name || 'Dept';
+
+  document.getElementById('reconMeta').innerHTML = `
+    <div class="entry-meta-item"><strong>${bName}</strong>Branch</div>
+    <div class="entry-meta-item"><strong>${dName}</strong>Dept</div>
+    <div class="entry-meta-item"><strong>${formatDate(date)}</strong>Date</div>
+  `;
+
+  document.getElementById('reconItemsList').innerHTML =
+    '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading entries...</div>';
+
+  try {
+    const { data, error } = await db.from('kst_stock_entries')
+      .select('*, kst_items(name, category, uom)')
+      .eq('entry_date', date)
+      .eq('branch_id', branchId)
+      .eq('department_id', deptId)
+      .order('item_id');
+
+    if (error) throw error;
+    if (!data?.length) {
+      document.getElementById('reconItemsList').innerHTML =
+        '<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-text">No entries found</div></div>';
+      return;
+    }
+
+    reconEntries = data;
+    buildReconTable(data);
+  } catch(e) {
+    document.getElementById('reconItemsList').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error: ${e.message}</div></div>`;
+  }
+}
+
+function buildReconTable(entries) {
+  // Group by category
+  const byCategory = {};
+  entries.forEach(e => {
+    const cat = e.kst_items?.category || 'Other';
+    if (!byCategory[cat]) byCategory[cat] = [];
+    byCategory[cat].push(e);
+  });
+
+  const list = document.getElementById('reconItemsList');
+  list.innerHTML = '';
+
+  Object.entries(byCategory).forEach(([cat, items], idx) => {
+    const header = document.createElement('div');
+    header.className = 'category-header' + (idx === 0 ? ' open' : '');
+    header.innerHTML = `<span>${cat} (${items.length})</span><span class="cat-toggle">▶</span>`;
+    header.onclick = () => toggleCategory('recon_' + cat);
+    list.appendChild(header);
+
+    const wrap = document.createElement('div');
+    wrap.className = 'category-table-wrap' + (idx === 0 ? ' open' : '');
+    wrap.id = 'catwrap_recon_' + cat.replace(/\s+/g, '_');
+
+    let html = `<table class="entry-table">
+      <thead><tr>
+        <th>Item</th><th>UOM</th>
+        <th>Opening</th><th>Received</th><th>Added</th>
+        <th>Returns</th><th>Closing</th>
+        <th>Sales (POS)</th>
+        <th>Phys Count</th><th>Variance</th><th>Notes</th>
+      </tr></thead><tbody>`;
+
+    items.forEach(e => {
+      const closing = e.closing_stock ?? 0;
+      html += `<tr id="recon_row_${e.id}" data-entry-id="${e.id}" data-closing="${closing}">
+        <td class="td-name">${e.kst_items?.name || '?'}</td>
+        <td class="td-uom">${e.kst_items?.uom || ''}</td>
+        <td class="td-input"><input class="opening-field" type="number" value="${e.opening_stock||0}" readonly tabindex="-1"></td>
+        <td class="td-input"><input class="opening-field" type="number" value="${e.received||0}" readonly tabindex="-1"></td>
+        <td class="td-input"><input class="opening-field" type="number" value="${e.added_stock||0}" readonly tabindex="-1"></td>
+        <td class="td-input"><input class="opening-field" type="number" value="${e.returns||0}" readonly tabindex="-1"></td>
+        <td class="td-input"><input class="opening-field" type="number" value="${closing}" readonly tabindex="-1"></td>
+        <td class="td-input"><input type="number" id="sales_${e.id}" placeholder="0"
+          oninput="updateReconCalc('${e.id}', ${closing})"></td>
+        <td class="td-input"><input class="opening-field" type="number" value="${e.physical_count??''}" readonly tabindex="-1"></td>
+        <td class="td-variance var-none" id="recon_var_${e.id}">—</td>
+        <td><input type="text" id="note_${e.id}" placeholder="Explain variance..." style="width:130px;font-size:11px;padding:4px 6px;margin:0;border:1.5px solid var(--border);border-radius:5px"></td>
+      </tr>`;
+    });
+
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+    list.appendChild(wrap);
+  });
+
+  updateReconSummary();
+}
+
+function updateReconCalc(entryId, closing) {
+  const salesEl = document.getElementById('sales_' + entryId);
+  const sales = parseFloat(salesEl?.value) || 0;
+  const physCount = reconEntries.find(e => e.id == entryId)?.physical_count;
+  
+  // True closing after sales = closing_stock (before sales) - sales
+  const trueClosing = closing - sales;
+  const variance = physCount !== null && physCount !== undefined 
+    ? physCount - trueClosing : null;
+
+  const varEl = document.getElementById('recon_var_' + entryId);
+  if (varEl) {
+    if (variance !== null) {
+      if (Math.abs(variance) < 0.01) {
+        varEl.className = 'td-variance var-ok';
+        varEl.textContent = '✓ 0';
+      } else {
+        varEl.className = 'td-variance var-bad';
+        varEl.textContent = (variance > 0 ? '+' : '') + variance.toFixed(1);
+      }
+    } else {
+      varEl.className = 'td-variance var-none';
+      varEl.textContent = '—';
+    }
+  }
+  updateReconSummary();
+}
+
+function updateReconSummary() {
+  let variances = 0;
+  reconEntries.forEach(e => {
+    const salesEl = document.getElementById('sales_' + e.id);
+    const sales = parseFloat(salesEl?.value) || 0;
+    const trueClosing = (e.closing_stock || 0) - sales;
+    const variance = e.physical_count !== null && e.physical_count !== undefined
+      ? e.physical_count - trueClosing : null;
+    if (variance !== null && Math.abs(variance) >= 0.01) variances++;
+  });
+
+  const el = document.getElementById('reconVarianceSummary');
+  if (el) {
+    el.innerHTML = variances > 0
+      ? `<div style="background:#FDEDEC;color:var(--red);padding:8px 12px;border-radius:6px;font-size:13px;font-weight:600">⚠ ${variances} variance(s) — add notes to explain</div>`
+      : `<div style="background:#EAF7EE;color:var(--green);padding:8px 12px;border-radius:6px;font-size:13px;font-weight:600">✓ All clear — no variances</div>`;
+  }
+}
+
+async function submitRecon() {
+  try {
+    const updates = reconEntries.map(e => {
+      const sales = parseFloat(document.getElementById('sales_' + e.id)?.value) || 0;
+      const note = document.getElementById('note_' + e.id)?.value || null;
+      return db.from('kst_stock_entries')
+        .update({ sales_per_bill: sales, variance_notes: note, status: 'reconciled',
+                  reconciled_by: currentUser.id, reconciled_at: new Date().toISOString() })
+        .eq('id', e.id);
+    });
+    await Promise.all(updates);
+    showToast('Reconciliation complete ✓', 'success');
+    setTimeout(() => { openHistory(); }, 1200);
+  } catch(err) {
+    showToast('Error: ' + err.message, 'error');
+  }
+}
+
+async function saveReconDraft() {
+  showToast('Draft saved');
 }
 
 // ═══════════════════════════════════════

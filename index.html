@@ -401,6 +401,48 @@
   .chip-reconciled { background: #EBF5FB; color: #2980B9; }
   .chip-final { background: #2C1A0E; color: #FAF6F0; }
 
+  /* ── DASHBOARD STATUS ── */
+  .branch-status-card {
+    background: var(--cream);
+    border-radius: 8px;
+    padding: 12px 14px;
+    border: 1.5px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: border-color 0.15s;
+  }
+  .branch-status-card:hover { border-color: var(--gold); }
+  .branch-status-card.status-all-done { border-color: var(--green); background: #EAF7EE; }
+  .branch-status-card.status-partial { border-color: var(--orange); background: #FEF9E7; }
+  .branch-status-card.status-none { border-color: var(--border); }
+  .branch-status-card.status-sendback { border-color: var(--red); background: #FDEDEC; }
+  .branch-name { font-size: 13px; font-weight: 700; color: var(--brown); }
+  .branch-dept-pills { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .dept-pill {
+    font-size: 10px;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 600;
+  }
+  .pill-done { background: #EAF7EE; color: var(--green); }
+  .pill-recon { background: #EBF5FB; color: #2980B9; }
+  .pill-final { background: var(--brown); color: var(--cream); }
+  .pill-pending { background: #FEF9E7; color: var(--orange); }
+  .pill-none { background: var(--border); color: var(--text-light); }
+  .pill-sendback { background: #FDEDEC; color: var(--red); }
+  .send-back-alert {
+    background: #FDEDEC;
+    border: 1.5px solid var(--red);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .send-back-alert strong { color: var(--red); }
+
   /* ── REPORT TABS ── */
   .rep-tab {
     background: var(--card);
@@ -570,18 +612,30 @@
     <div class="welcome-sub" id="welcomeSub"></div>
   </div>
 
-  <div class="stats-row" id="dashStats" style="display:none">
-    <div class="stat-box">
-      <div class="stat-val" id="statToday">0</div>
-      <div class="stat-label">Today's Entries</div>
+  <!-- Today summary stats -->
+  <div class="stats-row" style="margin:12px 0">
+    <div class="stat-box" style="cursor:pointer" onclick="openReports()">
+      <div class="stat-val" id="statSubmitted" style="color:var(--green)">—</div>
+      <div class="stat-label">Submitted</div>
     </div>
-    <div class="stat-box">
-      <div class="stat-val" id="statVariance" style="color:var(--red)">0</div>
+    <div class="stat-box" style="cursor:pointer" onclick="openHistory()">
+      <div class="stat-val" id="statPending" style="color:var(--orange)">—</div>
+      <div class="stat-label">Pending</div>
+    </div>
+    <div class="stat-box" style="cursor:pointer" onclick="openHistory()">
+      <div class="stat-val" id="statVariances" style="color:var(--red)">—</div>
       <div class="stat-label">Variances</div>
     </div>
-    <div class="stat-box">
-      <div class="stat-val" id="statPending" style="color:var(--orange)">0</div>
-      <div class="stat-label">Pending Recon</div>
+  </div>
+
+  <!-- Send-back alerts -->
+  <div id="sendBackAlerts"></div>
+
+  <!-- Today's branch status -->
+  <div class="card" style="margin-bottom:12px">
+    <div class="card-title">Today's Status — <span id="dashDate"></span></div>
+    <div id="branchStatusGrid" style="display:grid;gap:8px">
+      <div style="text-align:center;padding:16px;color:var(--text-light);font-size:13px">Loading...</div>
     </div>
   </div>
 
@@ -1108,56 +1162,35 @@ function buildDashboard() {
   document.getElementById('welcomeName').textContent = currentUser.name.split(' ')[0];
 
   const role = currentUser.role;
-  const sub = { supervisor: 'Supervisor', manager: 'Branch Manager', cost_control: 'Cost Control',
+  const sub = { supervisor: 'Supervisor', manager: 'Manager / GM', cost_control: 'Cost Control',
     director: 'Director', dispatch: 'Dispatch Manager' };
-  document.getElementById('welcomeSub').textContent =
-    (currentUser.branch_name || 'All Branches') + ' · ' + (sub[role] || role);
+  const branchName = branches.find(b => b.id == currentUser.branch_id)?.name || 'All Branches';
+  document.getElementById('welcomeSub').textContent = branchName + ' · ' + (sub[role] || role);
 
+  const today = new Date().toISOString().split('T')[0];
+  const pad = n => String(n).padStart(2,'0');
+  const d = new Date();
+  document.getElementById('dashDate').textContent =
+    pad(d.getDate()) + ' ' + d.toLocaleString('en-GB',{month:'short'}) + ' ' + d.getFullYear();
+
+  // Load today's status
+  loadDashboardStats(today);
+
+  // Build quick action grid
   const grid = document.getElementById('actionGrid');
   grid.innerHTML = '';
-
-  const actions = [];
-
-  actions.push({
-    icon: '📋', label: 'New Daily Entry', desc: 'Display, Bar or Gelato',
-    fn: 'openNewEntry()'
-  });
-
+  const actions = [
+    { icon: '📋', label: 'New Entry', desc: 'Display, Bar or Gelato', fn: 'openNewEntry()' },
+    { icon: '📅', label: 'History', desc: 'All submissions', fn: 'openHistory()' },
+  ];
   if (['manager','cost_control','director'].includes(role)) {
-    actions.push({
-      icon: '⚖️', label: 'Reconcile', desc: 'Add sales & explain variances',
-      fn: "showScreen('historyScreen')"
-    });
+    actions.push({ icon: '⚖️', label: 'Reconcile', desc: 'Enter sales & close', fn: 'openHistory()' });
   }
-
-  actions.push({
-    icon: '📅', label: 'Entry History', desc: 'View past entries',
-    fn: "openHistory()"
-  });
-
-  actions.push({
-    icon: '📊', label: 'Reports', desc: 'Daily, weekly, monthly',
-    fn: "openReports()"
-  });
-
-  if (role === 'dispatch') {
-    actions.push({
-      icon: '🚚', label: 'Dispatch Entry', desc: 'Log stock sent to branches',
-      fn: "showToast('Dispatch module coming in Phase 5')"
-    });
+  actions.push({ icon: '📊', label: 'Reports', desc: 'Daily, weekly, monthly', fn: 'openReports()' });
+  if (['director','cost_control','manager'].includes(role)) {
+    actions.push({ icon: '⚙️', label: 'Settings', desc: 'Staff & items', fn: 'showSetup()', full: true });
   }
-
-  if (['director','cost_control'].includes(role)) {
-    actions.push({
-      icon: '⚙️', label: 'Setup & Seed', desc: 'Add items, manage data',
-      fn: "showScreen('setupScreen')", full: true
-    });
-  }
-
-  actions.push({
-    icon: '🚪', label: 'Sign Out', desc: '',
-    fn: 'logout()', full: true
-  });
+  actions.push({ icon: '🚪', label: 'Sign Out', desc: '', fn: 'logout()', full: true });
 
   actions.forEach(a => {
     const div = document.createElement('div');
@@ -1174,9 +1207,122 @@ function buildDashboard() {
   });
 }
 
-// ═══════════════════════════════════════
-// LOAD REFERENCE DATA
-// ═══════════════════════════════════════
+async function loadDashboardStats(today) {
+  try {
+    const role = currentUser?.role;
+    const canSeeAll = ['director','cost_control','manager'].includes(role);
+
+    // Fetch today's entries
+    let q = db.from('kst_stock_entries')
+      .select('branch_id, department_id, status, variance, send_back_comment')
+      .eq('entry_date', today);
+
+    if (!canSeeAll && currentUser?.branch_id) {
+      q = q.eq('branch_id', currentUser.branch_id);
+    }
+
+    const { data } = await q;
+    if (!data) return;
+
+    // Deduplicate to one status per branch+dept
+    const seen = new Map();
+    data.forEach(r => {
+      const key = r.branch_id + '|' + r.department_id;
+      // Priority: final > reconciled > submitted > draft
+      const priority = { final: 4, reconciled: 3, submitted: 2, draft: 1 };
+      if (!seen.has(key) || priority[r.status] > priority[seen.get(key).status]) {
+        seen.set(key, r);
+      }
+    });
+
+    // Count stats
+    let submitted = 0, pending = 0, variances = 0, sendBacks = [];
+    seen.forEach(r => {
+      if (['submitted','reconciled','final'].includes(r.status)) submitted++;
+      else pending++;
+      if (r.variance && Math.abs(r.variance) > 0.01) variances++;
+      if (r.send_back_comment && r.status === 'reconciled') {
+        sendBacks.push(r);
+      }
+    });
+
+    // Update stat boxes
+    document.getElementById('statSubmitted').textContent = submitted;
+    document.getElementById('statPending').textContent = pending;
+    document.getElementById('statVariances').textContent = variances;
+
+    // Send-back alerts
+    const alertsEl = document.getElementById('sendBackAlerts');
+    alertsEl.innerHTML = '';
+    sendBacks.forEach(r => {
+      const bName = branches.find(b => b.id == r.branch_id)?.name || 'Branch';
+      const dName = departments.find(d => d.id == r.department_id)?.name || 'Dept';
+      const div = document.createElement('div');
+      div.className = 'send-back-alert';
+      div.onclick = () => openReconScreen(today, r.branch_id, r.department_id);
+      div.innerHTML = `⚠ <strong>Sent back:</strong> ${bName} ${dName} — "${r.send_back_comment}"`;
+      alertsEl.appendChild(div);
+    });
+
+    // Branch status grid
+    const grid = document.getElementById('branchStatusGrid');
+    grid.innerHTML = '';
+
+    // Group by branch
+    const byBranch = {};
+    const visibleBranches = canSeeAll ? branches : branches.filter(b => b.id == currentUser?.branch_id);
+
+    visibleBranches.forEach(b => {
+      byBranch[b.id] = { branch: b, depts: [] };
+    });
+
+    seen.forEach(r => {
+      if (byBranch[r.branch_id]) {
+        byBranch[r.branch_id].depts.push(r);
+      }
+    });
+
+    const statusConfig = {
+      final: { label: '✓ Final', cls: 'pill-final' },
+      reconciled: { label: 'Reconciled', cls: 'pill-recon' },
+      submitted: { label: 'Submitted', cls: 'pill-done' },
+      draft: { label: 'Draft', cls: 'pill-pending' },
+    };
+
+    Object.values(byBranch).forEach(({ branch, depts }) => {
+      const card = document.createElement('div');
+      const hasAll = depts.length > 0 && depts.every(d => ['submitted','reconciled','final'].includes(d.status));
+      const hasSendBack = depts.some(d => d.send_back_comment && d.status === 'reconciled');
+      const cardClass = hasSendBack ? 'status-sendback' : hasAll ? 'status-all-done' : depts.length > 0 ? 'status-partial' : 'status-none';
+      card.className = 'branch-status-card ' + cardClass;
+      card.onclick = () => openHistory();
+
+      let pillsHtml = '';
+      if (depts.length === 0) {
+        pillsHtml = '<span class="dept-pill pill-none">No entries yet</span>';
+      } else {
+        depts.forEach(d => {
+          const deptName = departments.find(dep => dep.id == d.department_id)?.name || 'Dept';
+          const cfg = statusConfig[d.status] || { label: d.status, cls: 'pill-none' };
+          const sendBackMark = d.send_back_comment ? ' ↩' : '';
+          pillsHtml += `<span class="dept-pill ${cfg.cls}">${deptName}: ${cfg.label}${sendBackMark}</span>`;
+        });
+      }
+
+      card.innerHTML = `
+        <div>
+          <div class="branch-name">${branch.name.replace('Karveli ','').replace('To Go ','')}</div>
+          <div class="branch-dept-pills">${pillsHtml}</div>
+        </div>
+        <div style="font-size:20px">›</div>
+      `;
+      grid.appendChild(card);
+    });
+
+  } catch(e) {
+    console.error('Dashboard stats error:', e);
+  }
+}
 async function loadBranches() {
   try {
     const { data } = await db.from('branches').select('*').order('name');

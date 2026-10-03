@@ -573,7 +573,13 @@
 <!-- HEADER -->
 <div class="header" id="appHeader" style="display:none">
   <div class="header-logo">Karveli <span>Stock</span></div>
-  <div class="header-user" id="headerUser" onclick="goBack()">⬅ Back</div>
+  <div style="display:flex;align-items:center;gap:12px">
+    <div style="position:relative;cursor:pointer" onclick="openNotifications()">
+      <span style="font-size:20px">🔔</span>
+      <span id="notifBadge" style="display:none;position:absolute;top:-4px;right:-4px;background:var(--red);color:white;border-radius:50%;width:16px;height:16px;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center" id="notifBadge">0</span>
+    </div>
+    <div class="header-user" id="headerUser" onclick="goBack()">⬅ Back</div>
+  </div>
 </div>
 
 <!-- TOAST -->
@@ -931,6 +937,15 @@
 </div>
 
 <!-- ═══════════════════════════════════════
+     SCREEN: NOTIFICATIONS
+═══════════════════════════════════════ -->
+<div class="screen" id="notificationsScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:4px">Notifications</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:16px">Your recent alerts</div>
+  <div id="notifList"></div>
+</div>
+
+<!-- ═══════════════════════════════════════
      SCREEN: SETUP (first time)
 ═══════════════════════════════════════ -->
 <div class="screen" id="setupScreen">
@@ -1143,6 +1158,9 @@ async function afterLogin() {
   await loadDepartments();
   showScreen('dashboardScreen');
   buildDashboard();
+  loadNotificationCount();
+  // Refresh count every 2 minutes
+  setInterval(loadNotificationCount, 120000);
 }
 
 function logout() {
@@ -1733,6 +1751,17 @@ async function submitEntry() {
 
   const ok = await saveEntry('submitted');
   if (ok) {
+    // Notify managers and directors
+    const managers = await db.from('kst_staff')
+      .select('id').in('role', ['manager','cost_control','director']);
+    const bName = branches.find(b => b.id == currentEntry.branchId)?.name || 'Branch';
+    const dName = departments.find(d => d.id == currentEntry.departmentId)?.name || 'Dept';
+    const msg = currentEntry.staffName + ' submitted ' + bName + ' ' + dName + ' for ' + formatDate(currentEntry.date);
+    if (managers.data) {
+      for (const m of managers.data) {
+        await createNotification(m.id, 'entry_submitted', msg, currentEntry.date, currentEntry.branchId, currentEntry.departmentId);
+      }
+    }
     showToast('Entry submitted to manager ✓', 'success');
     setTimeout(() => showScreen('dashboardScreen'), 1200);
   } else {
@@ -2532,6 +2561,19 @@ async function submitRecon(status) {
       if (error) throw new Error('Update failed: ' + error.message);
     }
     
+    // Send notification
+    const bName = branches.find(b => b.id == reconData.branchId)?.name || 'Branch';
+    const dName = departments.find(d => d.id == reconData.deptId)?.name || 'Dept';
+    if (newStatus === 'final') {
+      // Notify directors
+      const directors = await db.from('kst_staff').select('id').in('role', ['director','cost_control']);
+      const msg = currentUser.name + ' finalised ' + bName + ' ' + dName + ' for ' + formatDate(reconData.date);
+      if (directors.data) {
+        for (const d of directors.data) {
+          await createNotification(d.id, 'recon_submitted', msg, reconData.date, reconData.branchId, reconData.deptId);
+        }
+      }
+    }
     showToast(label, 'success');
     setTimeout(() => { openHistory(); }, 1500);
   } catch(err) {
@@ -3211,6 +3253,106 @@ async function saveItem() {
 }
 
 // ═══════════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════════
+async function createNotification(recipientId, type, message, entryDate, branchId, deptId) {
+  try {
+    await db.from('kst_notifications').insert({
+      recipient_id: recipientId,
+      sender_id: currentUser.id,
+      type,
+      message,
+      entry_date: entryDate,
+      branch_id: branchId,
+      department_id: deptId,
+      read: false
+    });
+  } catch(e) {
+    console.error('Notification error:', e);
+  }
+}
+
+async function loadNotificationCount() {
+  try {
+    const { count } = await db.from('kst_notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('recipient_id', currentUser.id)
+      .eq('read', false);
+    
+    const badge = document.getElementById('notifBadge');
+    if (badge) {
+      if (count > 0) {
+        badge.style.display = 'flex';
+        badge.textContent = count > 9 ? '9+' : count;
+      } else {
+        badge.style.display = 'none';
+      }
+    }
+  } catch(e) {}
+}
+
+async function openNotifications() {
+  showScreen('notificationsScreen');
+  const list = document.getElementById('notifList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">Loading...</div>';
+
+  try {
+    const { data } = await db.from('kst_notifications')
+      .select('*')
+      .eq('recipient_id', currentUser.id)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    // Mark all as read
+    await db.from('kst_notifications')
+      .update({ read: true })
+      .eq('recipient_id', currentUser.id)
+      .eq('read', false);
+
+    loadNotificationCount();
+
+    if (!data?.length) {
+      list.innerHTML = '<div class="empty-state"><div class="empty-icon">🔔</div><div class="empty-text">No notifications yet</div></div>';
+      return;
+    }
+
+    const typeIcons = {
+      entry_submitted: '📋',
+      recon_submitted: '⚖️',
+      sent_back: '↩️',
+      entry_overdue: '⚠️'
+    };
+
+    list.innerHTML = '';
+    data.forEach(n => {
+      const div = document.createElement('div');
+      div.className = `notif-item type-${n.type} ${n.read ? '' : 'unread'}`;
+      if (n.entry_date && n.branch_id && n.department_id) {
+        div.onclick = () => openReconScreen(n.entry_date, n.branch_id, n.department_id);
+      }
+      const timeAgo = getTimeAgo(n.created_at);
+      div.innerHTML = `
+        <div class="notif-title">${typeIcons[n.type]||'🔔'} ${n.message}</div>
+        <div class="notif-time">${timeAgo}</div>
+      `;
+      list.appendChild(div);
+    });
+  } catch(e) {
+    list.innerHTML = `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error: ${e.message}</div></div>`;
+  }
+}
+
+function getTimeAgo(dateStr) {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs / 24) + 'd ago';
+}
+
+// ═══════════════════════════════════════
 // SEND BACK
 // ═══════════════════════════════════════
 async function sendBackToManager() {
@@ -3230,6 +3372,17 @@ async function sendBackToManager() {
       .eq('department_id', reconData.deptId);
 
     if (error) throw error;
+    // Notify managers at that branch
+    const managers = await db.from('kst_staff')
+      .select('id').in('role', ['manager','cost_control']);
+    const bName = branches.find(b => b.id == reconData.branchId)?.name || 'Branch';
+    const dName = departments.find(d => d.id == reconData.deptId)?.name || 'Dept';
+    const msg = '↩ ' + currentUser.name + ' sent back ' + bName + ' ' + dName + ': "' + comment + '"';
+    if (managers.data) {
+      for (const m of managers.data) {
+        await createNotification(m.id, 'sent_back', msg, reconData.date, reconData.branchId, reconData.deptId);
+      }
+    }
     showToast('Sent back to manager ✓', 'success');
     setTimeout(() => openHistory(), 1200);
   } catch(e) {

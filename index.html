@@ -1377,12 +1377,16 @@ async function seedDisplayItems() {
 
     log.textContent = 'Branches found: ' + (branchData?.map(b=>b.name).join(', ') || 'NONE');
     
-    const munyonyo = branchData?.find(b => b.name?.toLowerCase().includes('munyonyo'));
+    const munyonyo = branchData?.find(b => b.name?.toLowerCase().includes('munyonyo') || b.name?.toLowerCase().includes('mun'));
     const display = deptData?.find(d => d.name === 'Display');
     
     if (!munyonyo) { log.textContent += '\nERROR: No Munyonyo branch. Found: ' + branchData?.map(b=>b.name).join(', '); return; }
     if (!display) { log.textContent += '\nERROR: Display dept missing.'; return; }
     log.textContent += '\nUsing: ' + munyonyo.name + ' + ' + display.name;
+    
+    // Delete any previously seeded items for this branch+dept to avoid duplicates
+    await db.from('kst_items').delete().eq('branch_id', munyonyo.id).eq('department_id', display.id);
+    log.textContent += '\nCleared old items...';
 
     const items = [
       // Bread

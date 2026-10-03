@@ -1093,12 +1093,20 @@ function buildItemEntryScreen(items) {
 
 function toggleCategory(cat) {
   const id = 'catwrap_' + cat.replace(/\s+/g,'_');
-  const wrap = document.getElementById(id);
+  toggleCategoryById(id);
   const headers = document.querySelectorAll('.category-header');
   headers.forEach(h => {
-    if (h.textContent.includes(cat)) h.classList.toggle('open');
+    if (h.querySelector('span')?.textContent?.includes(cat)) h.classList.toggle('open');
   });
-  wrap?.classList.toggle('open');
+}
+
+function toggleCategoryById(wrapId) {
+  const wrap = document.getElementById(wrapId);
+  if (!wrap) return;
+  wrap.classList.toggle('open');
+  // toggle the header above it
+  const prev = wrap.previousElementSibling;
+  if (prev?.classList.contains('category-header')) prev.classList.toggle('open');
 }
 
 function buildItemRow(item, isBar) { return document.createElement('div'); } // legacy stub
@@ -1260,7 +1268,12 @@ async function openHistory() {
     sel.appendChild(opt);
   });
 
-  document.getElementById('histDate').value = new Date().toISOString().split('T')[0];
+  // Add onchange auto-filter
+  sel.onchange = loadHistory;
+  document.getElementById('histDate').onchange = loadHistory;
+
+  // No date filter by default — show all recent entries
+  document.getElementById('histDate').value = '';
   await loadHistory();
 }
 
@@ -1277,8 +1290,8 @@ async function loadHistory() {
       .order('submitted_at', { ascending: false })
       .limit(2000);
 
-    if (branchId) q = q.eq('branch_id', parseInt(branchId));
-    if (date) q = q.eq('entry_date', date);
+    if (branchId && branchId !== '') q = q.eq('branch_id', parseInt(branchId));
+    if (date && date !== '') q = q.eq('entry_date', date);
 
     const { data, error } = await q;
     if (error) throw error;
@@ -1598,8 +1611,8 @@ async function openReconScreen(date, branchId, deptId) {
   reconData = { date, branchId, deptId };
   reconEntries = [];
 
-  const bName = branches.find(b => b.id === branchId)?.name || 'Branch';
-  const dName = departments.find(d => d.id === deptId)?.name || 'Dept';
+  const bName = branches.find(b => b.id == branchId)?.name || 'Branch';
+  const dName = departments.find(d => d.id == deptId)?.name || 'Dept';
 
   document.getElementById('reconMeta').innerHTML = `
     <div class="entry-meta-item"><strong>${bName}</strong>Branch</div>
@@ -1612,7 +1625,7 @@ async function openReconScreen(date, branchId, deptId) {
 
   try {
     const { data, error } = await db.from('kst_stock_entries')
-      .select('*, kst_items(name, category, uom)')
+      .select('*, kst_items!kst_stock_entries_item_id_fkey(name, category, uom)')
       .eq('entry_date', date)
       .eq('branch_id', branchId)
       .eq('department_id', deptId)
@@ -1649,7 +1662,7 @@ function buildReconTable(entries) {
     const header = document.createElement('div');
     header.className = 'category-header' + (idx === 0 ? ' open' : '');
     header.innerHTML = `<span>${cat} (${items.length})</span><span class="cat-toggle">▶</span>`;
-    header.onclick = () => toggleCategory('recon_' + cat);
+    header.onclick = () => toggleCategoryById('catwrap_recon_' + cat.replace(/\s+/g, '_'));
     list.appendChild(header);
 
     const wrap = document.createElement('div');

@@ -736,6 +736,13 @@ function buildDashboard() {
     });
   }
 
+  if (['director','cost_control'].includes(role)) {
+    actions.push({
+      icon: '⚙️', label: 'Setup & Seed', desc: 'Add items, manage data',
+      fn: "showScreen('setupScreen')", full: true
+    });
+  }
+
   actions.push({
     icon: '🚪', label: 'Sign Out', desc: '',
     fn: 'logout()', full: true

@@ -2051,9 +2051,16 @@ function renderSummary(data) {
   });
 
   let html = '';
-  Object.entries(byBranch).forEach(([bid, cats]) => {
+  Object.entries(byBranch).forEach(([bid, cats], idx) => {
+    const secId = 'rep_branch_' + bid;
+    const isFirst = idx === 0;
     html += `<div class="report-section">
-      <div class="report-section-title">🏪 ${bName(bid)}</div>
+      <div class="report-section-title" style="cursor:pointer;display:flex;justify-content:space-between;align-items:center"
+        onclick="toggleRepSection('${secId}')">
+        <span>🏪 ${bName(bid)}</span>
+        <span id="${secId}_icon" style="font-size:14px;transition:transform 0.2s;transform:${isFirst?'rotate(90deg)':'rotate(0deg)'}"">▶</span>
+      </div>
+      <div id="${secId}" style="display:${isFirst?'block':'none'}">
       <div style="overflow-x:auto">
       <table class="report-table">
         <thead><tr>
@@ -2084,7 +2091,7 @@ function renderSummary(data) {
       <td>${fmt(totRec)}</td><td>—</td>
       <td>${fmt(totSales)}</td><td>${fmt(totRet)}</td>
       <td>${fmt(totSpil)}</td><td>${fmt(totVar)}</td>
-    </tr></tbody></table></div></div>`;
+    </tr></tbody></table></div></div></div>`;
   });
 
   document.getElementById('reportContent').innerHTML = html;
@@ -2231,6 +2238,16 @@ function renderComparison(data) {
 
   html += '</tbody></table></div></div>';
   document.getElementById('reportContent').innerHTML = html;
+}
+
+// ── TOGGLE REPORT SECTION ──────────────────────────
+function toggleRepSection(id) {
+  const el = document.getElementById(id);
+  const icon = document.getElementById(id + '_icon');
+  if (!el) return;
+  const isOpen = el.style.display !== 'none';
+  el.style.display = isOpen ? 'none' : 'block';
+  if (icon) icon.style.transform = isOpen ? 'rotate(0deg)' : 'rotate(90deg)';
 }
 
 // ── PDF DOWNLOAD ──────────────────────────

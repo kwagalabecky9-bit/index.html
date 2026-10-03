@@ -400,6 +400,80 @@
   .chip-draft { background: #FEF9E7; color: var(--orange); }
   .chip-reconciled { background: #EBF5FB; color: #2980B9; }
 
+  /* ── REPORT TABS ── */
+  .rep-tab {
+    background: var(--card);
+    border: 1.5px solid var(--border);
+    color: var(--text-mid);
+    white-space: nowrap;
+    border-radius: 20px;
+    padding: 6px 14px;
+    font-size: 12px;
+  }
+  .rep-tab.active-tab {
+    background: var(--brown);
+    color: var(--cream);
+    border-color: var(--brown);
+  }
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .report-table th {
+    background: var(--brown);
+    color: var(--cream);
+    padding: 8px 10px;
+    text-align: left;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .report-table td {
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  .report-table tr:hover td { background: #FBF8F4; }
+  .report-table .cat-row td {
+    background: var(--cream);
+    font-weight: 700;
+    color: var(--brown-mid);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+  }
+  .report-table .total-row td {
+    background: var(--brown);
+    color: var(--cream);
+    font-weight: 700;
+  }
+  .rep-variance-bad { color: var(--red); font-weight: 700; }
+  .rep-variance-ok { color: var(--green); }
+  .report-section { margin-bottom: 20px; }
+  .report-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--brown);
+    margin-bottom: 8px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--gold);
+  }
+  .wastage-pill {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    margin: 2px;
+  }
+  .pill-damage { background: #FDEDEC; color: var(--red); }
+  .pill-sampling { background: #EBF5FB; color: #2980B9; }
+  .pill-old { background: #FEF9E7; color: var(--orange); }
+  .pill-wastage { background: #F4ECF7; color: #8E44AD; }
+  .pill-bar { background: #EAF7EE; color: var(--green); }
+
   /* ── EMPTY STATE ── */
   .empty-state {
     text-align: center;
@@ -585,6 +659,59 @@
   <div style="margin-top:20px;display:grid;gap:10px">
     <button class="btn btn-success" onclick="submitRecon()">✓ Complete Reconciliation</button>
     <button class="btn btn-outline" onclick="saveReconDraft()">Save Draft</button>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN: REPORTS
+═══════════════════════════════════════ -->
+<div class="screen" id="reportsScreen">
+  <div style="font-size:18px;font-weight:700;color:var(--brown);margin-bottom:4px">Reports</div>
+  <div style="font-size:13px;color:var(--text-light);margin-bottom:16px">Filter and download</div>
+
+  <!-- Filters -->
+  <div class="card" style="margin-bottom:14px">
+    <div class="card-title">Filters</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div>
+        <label>Branch</label>
+        <select id="repBranch"><option value="">All Branches</option></select>
+      </div>
+      <div>
+        <label>Department</label>
+        <select id="repDept"><option value="">All Depts</option></select>
+      </div>
+      <div>
+        <label>From Date</label>
+        <input type="date" id="repFrom">
+      </div>
+      <div>
+        <label>To Date</label>
+        <input type="date" id="repTo">
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px">
+      <button class="btn btn-outline btn-sm" onclick="setDateRange('today')">Today</button>
+      <button class="btn btn-outline btn-sm" onclick="setDateRange('week')">This Week</button>
+      <button class="btn btn-outline btn-sm" onclick="setDateRange('month')">This Month</button>
+      <button class="btn btn-gold btn-sm" onclick="loadReports()">Run Report</button>
+    </div>
+  </div>
+
+  <!-- Report Type Tabs -->
+  <div style="display:flex;gap:6px;margin-bottom:14px;overflow-x:auto;padding-bottom:4px">
+    <button class="btn btn-sm rep-tab active-tab" onclick="switchRepTab('summary')" id="tab_summary">Summary</button>
+    <button class="btn btn-sm rep-tab" onclick="switchRepTab('variance')" id="tab_variance">Variances</button>
+    <button class="btn btn-sm rep-tab" onclick="switchRepTab('wastage')" id="tab_wastage">Wastage & Returns</button>
+    <button class="btn btn-sm rep-tab" onclick="switchRepTab('comparison')" id="tab_comparison">Branch Compare</button>
+  </div>
+
+  <div id="reportContent">
+    <div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">Select filters and run report</div></div>
+  </div>
+
+  <div style="margin-top:16px;display:none" id="pdfBtn">
+    <button class="btn btn-primary" onclick="downloadPDF()">⬇ Download PDF</button>
   </div>
 </div>
 
@@ -805,12 +932,10 @@ function buildDashboard() {
     fn: "openHistory()"
   });
 
-  if (['cost_control','director','manager'].includes(role)) {
-    actions.push({
-      icon: '📊', label: 'Reports', desc: 'Daily, weekly, monthly',
-      fn: "showToast('Reports coming in Phase 4')"
-    });
-  }
+  actions.push({
+    icon: '📊', label: 'Reports', desc: 'Daily, weekly, monthly',
+    fn: "openReports()"
+  });
 
   if (role === 'dispatch') {
     actions.push({
@@ -1259,12 +1384,14 @@ async function openHistory() {
   showScreen('historyScreen');
 
   const sel = document.getElementById('histBranch');
-  sel.innerHTML = '<option value="">All branches</option>';
-  branches.forEach(b => {
+  const canSeeAll = ['director','cost_control','manager'].includes(currentUser?.role);
+  sel.innerHTML = canSeeAll ? '<option value="">All branches</option>' : '';
+  const visibleBranches = canSeeAll ? branches : branches.filter(b => b.id == currentUser?.branch_id);
+  visibleBranches.forEach(b => {
     const opt = document.createElement('option');
     opt.value = b.id;
     opt.textContent = b.name;
-    if (currentUser.branch_id === b.id) opt.selected = true;
+    if (!canSeeAll || currentUser?.branch_id == b.id) opt.selected = true;
     sel.appendChild(opt);
   });
 
@@ -1771,6 +1898,383 @@ async function submitRecon() {
 
 async function saveReconDraft() {
   showToast('Draft saved');
+}
+
+// ═══════════════════════════════════════
+// REPORTS
+// ═══════════════════════════════════════
+let currentRepTab = 'summary';
+let reportRawData = [];
+
+function openReports() {
+  showScreen('reportsScreen');
+
+  // Fill branch dropdown based on role
+  const sel = document.getElementById('repBranch');
+  sel.innerHTML = '<option value="">All Branches</option>';
+  const allowed = ['director','cost_control','manager','dispatch'].includes(currentUser?.role)
+    ? branches
+    : branches.filter(b => b.id == currentUser?.branch_id);
+  allowed.forEach(b => {
+    const opt = document.createElement('option');
+    opt.value = b.id;
+    opt.textContent = b.name;
+    if (currentUser?.branch_id == b.id && currentUser?.role === 'supervisor') opt.selected = true;
+    sel.appendChild(opt);
+  });
+
+  // Fill dept dropdown
+  const dsel = document.getElementById('repDept');
+  dsel.innerHTML = '<option value="">All Depts</option>';
+  departments.forEach(d => {
+    const opt = document.createElement('option');
+    opt.value = d.id;
+    opt.textContent = d.name;
+    dsel.appendChild(opt);
+  });
+
+  // Default to this month
+  setDateRange('month');
+}
+
+function setDateRange(range) {
+  const now = new Date();
+  const pad = n => String(n).padStart(2,'0');
+  const fmt = d => `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+
+  if (range === 'today') {
+    document.getElementById('repFrom').value = fmt(now);
+    document.getElementById('repTo').value = fmt(now);
+  } else if (range === 'week') {
+    const start = new Date(now);
+    start.setDate(now.getDate() - now.getDay() + 1);
+    document.getElementById('repFrom').value = fmt(start);
+    document.getElementById('repTo').value = fmt(now);
+  } else if (range === 'month') {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    document.getElementById('repFrom').value = fmt(start);
+    document.getElementById('repTo').value = fmt(now);
+  }
+}
+
+function switchRepTab(tab) {
+  currentRepTab = tab;
+  document.querySelectorAll('.rep-tab').forEach(t => t.classList.remove('active-tab'));
+  document.getElementById('tab_' + tab)?.classList.add('active-tab');
+  if (reportRawData.length) renderReport(reportRawData);
+}
+
+async function loadReports() {
+  const branchId = document.getElementById('repBranch').value;
+  const deptId = document.getElementById('repDept').value;
+  const from = document.getElementById('repFrom').value;
+  const to = document.getElementById('repTo').value;
+
+  if (!from || !to) { showToast('Select date range', 'error'); return; }
+
+  document.getElementById('reportContent').innerHTML =
+    '<div style="text-align:center;padding:30px;color:var(--text-light)">Loading...</div>';
+  document.getElementById('pdfBtn').style.display = 'none';
+
+  try {
+    let q = db.from('kst_stock_entries')
+      .select('*, kst_items!kst_stock_entries_item_id_fkey(name, category, uom)')
+      .gte('entry_date', from)
+      .lte('entry_date', to)
+      .order('entry_date')
+      .order('branch_id');
+
+    if (branchId) q = q.eq('branch_id', parseInt(branchId));
+    if (deptId) q = q.eq('department_id', parseInt(deptId));
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    reportRawData = data || [];
+    renderReport(reportRawData);
+    document.getElementById('pdfBtn').style.display = 'block';
+  } catch(e) {
+    document.getElementById('reportContent').innerHTML =
+      `<div class="empty-state"><div class="empty-icon">⚠️</div><div class="empty-text">Error: ${e.message}</div></div>`;
+  }
+}
+
+function renderReport(data) {
+  if (!data.length) {
+    document.getElementById('reportContent').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">📊</div><div class="empty-text">No data for selected filters</div></div>';
+    return;
+  }
+  if (currentRepTab === 'summary') renderSummary(data);
+  else if (currentRepTab === 'variance') renderVariance(data);
+  else if (currentRepTab === 'wastage') renderWastage(data);
+  else if (currentRepTab === 'comparison') renderComparison(data);
+}
+
+function bName(id) { return branches.find(b => b.id == id)?.name || id; }
+function dName(id) { return departments.find(d => d.id == id)?.name || id; }
+function fmt(n) { return (n||0).toLocaleString(undefined, {minimumFractionDigits:0, maximumFractionDigits:2}); }
+
+// ── SUMMARY REPORT ──────────────────────────
+function renderSummary(data) {
+  // Group by branch → category → item
+  const byBranch = {};
+  data.forEach(r => {
+    const b = r.branch_id;
+    if (!byBranch[b]) byBranch[b] = {};
+    const cat = r.kst_items?.category || 'Other';
+    if (!byBranch[b][cat]) byBranch[b][cat] = [];
+    // Find existing item aggregate
+    const existing = byBranch[b][cat].find(i => i.item_id === r.item_id);
+    if (existing) {
+      existing.received += r.received || 0;
+      existing.added += r.added_stock || 0;
+      existing.sales += r.sales_per_bill || 0;
+      existing.returns += r.returns || 0;
+      existing.spoilage += r.spoilage || 0;
+      existing.variance += r.variance || 0;
+      existing.days++;
+    } else {
+      byBranch[b][cat].push({
+        item_id: r.item_id,
+        name: r.kst_items?.name || '?',
+        uom: r.kst_items?.uom || '',
+        received: r.received || 0,
+        added: r.added_stock || 0,
+        sales: r.sales_per_bill || 0,
+        returns: r.returns || 0,
+        spoilage: r.spoilage || 0,
+        variance: r.variance || 0,
+        days: 1
+      });
+    }
+  });
+
+  let html = '';
+  Object.entries(byBranch).forEach(([bid, cats]) => {
+    html += `<div class="report-section">
+      <div class="report-section-title">🏪 ${bName(bid)}</div>
+      <div style="overflow-x:auto">
+      <table class="report-table">
+        <thead><tr>
+          <th>Item</th><th>UOM</th>
+          <th>Received</th><th>Added</th>
+          <th>Sales</th><th>Returns</th>
+          <th>Spoilage</th><th>Net Variance</th>
+        </tr></thead><tbody>`;
+
+    let totRec=0,totSales=0,totRet=0,totSpil=0,totVar=0;
+    Object.entries(cats).forEach(([cat, items]) => {
+      html += `<tr class="cat-row"><td colspan="8">${cat}</td></tr>`;
+      items.forEach(i => {
+        const varClass = Math.abs(i.variance) > 0 ? 'rep-variance-bad' : 'rep-variance-ok';
+        html += `<tr>
+          <td>${i.name}</td><td>${i.uom}</td>
+          <td>${fmt(i.received)}</td><td>${fmt(i.added)}</td>
+          <td>${fmt(i.sales)}</td><td>${fmt(i.returns)}</td>
+          <td>${fmt(i.spoilage)}</td>
+          <td class="${varClass}">${i.variance > 0 ? '+' : ''}${fmt(i.variance)}</td>
+        </tr>`;
+        totRec+=i.received; totSales+=i.sales; totRet+=i.returns; totSpil+=i.spoilage; totVar+=i.variance;
+      });
+    });
+
+    html += `<tr class="total-row">
+      <td colspan="2">TOTAL</td>
+      <td>${fmt(totRec)}</td><td>—</td>
+      <td>${fmt(totSales)}</td><td>${fmt(totRet)}</td>
+      <td>${fmt(totSpil)}</td><td>${fmt(totVar)}</td>
+    </tr></tbody></table></div></div>`;
+  });
+
+  document.getElementById('reportContent').innerHTML = html;
+}
+
+// ── VARIANCE REPORT ──────────────────────────
+function renderVariance(data) {
+  const flagged = data.filter(r => r.variance && Math.abs(r.variance) >= 0.01);
+
+  if (!flagged.length) {
+    document.getElementById('reportContent').innerHTML =
+      '<div class="empty-state"><div class="empty-icon">✅</div><div class="empty-text">No variances in this period</div></div>';
+    return;
+  }
+
+  let html = `<div class="report-section">
+    <div class="report-section-title">⚠ Variance Report (${flagged.length} items)</div>
+    <div style="overflow-x:auto"><table class="report-table">
+      <thead><tr>
+        <th>Date</th><th>Branch</th><th>Item</th>
+        <th>Closing</th><th>Phys Count</th><th>Variance</th><th>Notes</th>
+      </tr></thead><tbody>`;
+
+  flagged.forEach(r => {
+    html += `<tr>
+      <td>${formatDate(r.entry_date)}</td>
+      <td>${bName(r.branch_id)}</td>
+      <td>${r.kst_items?.name || '?'}</td>
+      <td>${fmt(r.closing_stock)}</td>
+      <td>${r.physical_count !== null ? fmt(r.physical_count) : '—'}</td>
+      <td class="rep-variance-bad">${r.variance > 0 ? '+' : ''}${fmt(r.variance)}</td>
+      <td style="font-size:11px;color:var(--text-light)">${r.variance_notes || '—'}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div></div>';
+  document.getElementById('reportContent').innerHTML = html;
+}
+
+// ── WASTAGE & RETURNS REPORT ──────────────────────────
+function renderWastage(data) {
+  const withReturns = data.filter(r => (r.returns > 0 || r.spoilage > 0) && r.return_notes);
+
+  // Aggregate by reason
+  const byReason = {};
+  data.forEach(r => {
+    if (!r.returns && !r.spoilage) return;
+    const reason = r.return_notes || 'Unspecified';
+    if (!byReason[reason]) byReason[reason] = { qty: 0, items: [] };
+    const qty = (r.returns || 0) + (r.spoilage || 0);
+    byReason[reason].qty += qty;
+    byReason[reason].items.push({ name: r.kst_items?.name, qty, branch: bName(r.branch_id), date: r.entry_date });
+  });
+
+  // Summary cards
+  const reasonColors = {
+    'old_stock': 'pill-old', 'Old Stock': 'pill-old',
+    'damage': 'pill-damage', 'Damage': 'pill-damage',
+    'sampling': 'pill-sampling', 'Sampling': 'pill-sampling',
+    'wastage': 'pill-wastage', 'Wastage': 'pill-wastage',
+    'bar_use': 'pill-bar', 'Bar Use': 'pill-bar',
+  };
+
+  let summaryHtml = '<div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">';
+  Object.entries(byReason).forEach(([reason, d]) => {
+    const cls = reasonColors[reason] || 'pill-wastage';
+    summaryHtml += `<div class="wastage-pill ${cls}" style="padding:8px 14px;font-size:13px">
+      <strong>${fmt(d.qty)}</strong> ${reason}
+    </div>`;
+  });
+  summaryHtml += '</div>';
+
+  // Detail table
+  let html = `<div class="report-section">
+    <div class="report-section-title">🗑 Wastage & Returns Breakdown</div>
+    ${summaryHtml}
+    <div style="overflow-x:auto"><table class="report-table">
+      <thead><tr>
+        <th>Date</th><th>Branch</th><th>Item</th>
+        <th>Returns</th><th>Spoilage</th><th>Reason</th>
+      </tr></thead><tbody>`;
+
+  const wastageRows = data.filter(r => r.returns > 0 || r.spoilage > 0);
+  if (!wastageRows.length) {
+    html += '<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:20px">No returns or wastage in this period</td></tr>';
+  } else {
+    wastageRows.forEach(r => {
+      const reasonLabel = r.return_notes || '—';
+      const cls = reasonColors[r.return_notes] || '';
+      html += `<tr>
+        <td>${formatDate(r.entry_date)}</td>
+        <td style="font-size:11px">${bName(r.branch_id)}</td>
+        <td>${r.kst_items?.name || '?'}</td>
+        <td>${r.returns > 0 ? fmt(r.returns) : '—'}</td>
+        <td>${r.spoilage > 0 ? fmt(r.spoilage) : '—'}</td>
+        <td><span class="wastage-pill ${cls}">${reasonLabel}</span></td>
+      </tr>`;
+    });
+  }
+
+  html += '</tbody></table></div></div>';
+  document.getElementById('reportContent').innerHTML = html;
+}
+
+// ── BRANCH COMPARISON ──────────────────────────
+function renderComparison(data) {
+  const branchIds = [...new Set(data.map(r => r.branch_id))];
+
+  // Totals per branch
+  const totals = {};
+  branchIds.forEach(bid => {
+    const rows = data.filter(r => r.branch_id == bid);
+    totals[bid] = {
+      received: rows.reduce((s,r) => s + (r.received||0), 0),
+      sales: rows.reduce((s,r) => s + (r.sales_per_bill||0), 0),
+      returns: rows.reduce((s,r) => s + (r.returns||0), 0),
+      spoilage: rows.reduce((s,r) => s + (r.spoilage||0), 0),
+      variances: rows.filter(r => r.variance && Math.abs(r.variance) >= 0.01).length,
+      entries: [...new Set(rows.map(r => r.entry_date))].length
+    };
+  });
+
+  let html = `<div class="report-section">
+    <div class="report-section-title">🏪 Branch Comparison</div>
+    <div style="overflow-x:auto"><table class="report-table">
+      <thead><tr>
+        <th>Branch</th><th>Days</th>
+        <th>Received</th><th>Sales</th>
+        <th>Returns</th><th>Spoilage</th><th>Variances</th>
+      </tr></thead><tbody>`;
+
+  branchIds.forEach(bid => {
+    const t = totals[bid];
+    html += `<tr>
+      <td style="font-weight:600">${bName(bid)}</td>
+      <td>${t.entries}</td>
+      <td>${fmt(t.received)}</td>
+      <td>${fmt(t.sales)}</td>
+      <td>${fmt(t.returns)}</td>
+      <td>${fmt(t.spoilage)}</td>
+      <td class="${t.variances > 0 ? 'rep-variance-bad' : 'rep-variance-ok'}">${t.variances}</td>
+    </tr>`;
+  });
+
+  html += '</tbody></table></div></div>';
+  document.getElementById('reportContent').innerHTML = html;
+}
+
+// ── PDF DOWNLOAD ──────────────────────────
+function downloadPDF() {
+  const from = document.getElementById('repFrom').value;
+  const to = document.getElementById('repTo').value;
+  const branchSel = document.getElementById('repBranch');
+  const branchLabel = branchSel.options[branchSel.selectedIndex]?.text || 'All Branches';
+  const tabLabels = { summary: 'Summary', variance: 'Variance Report', wastage: 'Wastage & Returns', comparison: 'Branch Comparison' };
+
+  const reportHtml = document.getElementById('reportContent').innerHTML;
+  const win = window.open('', '_blank');
+  win.document.write(`
+    <!DOCTYPE html><html><head>
+    <meta charset="UTF-8">
+    <title>Karveli Stock Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; font-size: 12px; color: #1A1008; padding: 20px; }
+      h1 { font-size: 18px; color: #2C1A0E; margin-bottom: 4px; }
+      .meta { font-size: 11px; color: #9E8A76; margin-bottom: 20px; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      th { background: #2C1A0E; color: white; padding: 7px 8px; text-align: left; font-size: 10px; }
+      td { padding: 6px 8px; border-bottom: 1px solid #E0D5C5; font-size: 11px; }
+      .cat-row td { background: #FAF6F0; font-weight: 700; color: #5C3D2E; }
+      .total-row td { background: #2C1A0E; color: white; font-weight: 700; }
+      .rep-variance-bad { color: #C0392B; font-weight: 700; }
+      .rep-variance-ok { color: #27AE60; }
+      .report-section-title { font-size: 14px; font-weight: 700; color: #2C1A0E; margin: 16px 0 8px; border-bottom: 2px solid #C9952A; padding-bottom: 4px; }
+      .wastage-pill { display: inline-block; padding: 2px 6px; border-radius: 10px; font-size: 10px; margin: 2px; }
+      .pill-damage { background: #FDEDEC; color: #C0392B; }
+      .pill-sampling { background: #EBF5FB; color: #2980B9; }
+      .pill-old { background: #FEF9E7; color: #E67E22; }
+      .pill-wastage { background: #F4ECF7; color: #8E44AD; }
+      .pill-bar { background: #EAF7EE; color: #27AE60; }
+      @media print { body { padding: 0; } }
+    </style>
+    </head><body>
+    <h1>Karveli Stock Tracker — ${tabLabels[currentRepTab]}</h1>
+    <div class="meta">${branchLabel} &nbsp;·&nbsp; ${formatDate(from)} to ${formatDate(to)} &nbsp;·&nbsp; Generated: ${new Date().toLocaleString()}</div>
+    ${reportHtml}
+    <script>window.onload = () => { window.print(); }<\/script>
+    </body></html>
+  `);
+  win.document.close();
 }
 
 // ═══════════════════════════════════════

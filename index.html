@@ -1160,7 +1160,8 @@ async function saveEntry(status) {
       received: d.received || 0,
       added_stock: d.added_stock || 0,
       returns: d.returns || 0,
-      return_reason_id: d.return_reason_id || null,
+      return_reason_id: null, // reason stored as text in return_notes
+      return_notes: d.return_reason_id || null,
       spoilage: d.spoilage || 0,
       internal_use: d.internal_use || 0,
       physical_count: d.physical_count ?? null,
@@ -1172,6 +1173,7 @@ async function saveEntry(status) {
 
   try {
     // Upsert — delete existing for this date/branch/dept then insert
+    console.log('Submitting rows sample:', JSON.stringify(rows[0]));
     const { error: delErr } = await db.from('kst_stock_entries')
       .delete()
       .eq('branch_id', currentEntry.branchId)
